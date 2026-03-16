@@ -188,6 +188,30 @@ func TestExtractTarSecure_RejectsPathTraversal(t *testing.T) {
 	assert.Contains(t, err.Error(), "rejecting path outside destination")
 }
 
+func TestExtractTarSecure_AcceptsSymlinkWithDoubleDotsInName(t *testing.T) {
+	dir := t.TempDir()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gw := gzip.NewWriter(w)
+		tw := tar.NewWriter(gw)
+		// "foo..bar" is a valid filename, not path traversal
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: "link", Mode: 0o755, Typeflag: tar.TypeSymlink, Linkname: "foo..bar"}))
+		_ = tw.Close()
+		_ = gw.Close()
+	}))
+	defer server.Close()
+
+	d := testDownloader(t)
+	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir)
+	require.NoError(t, err)
+
+	// Symlink should exist (target "foo..bar" resolves within dir, so it's valid)
+	linkPath := filepath.Join(dir, "link")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.True(t, info.Mode()&os.ModeSymlink != 0)
+}
+
 func TestExtractTarSecure_RejectsAbsolutePath(t *testing.T) {
 	dir := t.TempDir()
 

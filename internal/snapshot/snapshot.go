@@ -277,9 +277,6 @@ func validateSymlinkTarget(destPath, linkPath, linkname string) error {
 	if filepath.IsAbs(linkname) {
 		return fmt.Errorf("rejecting absolute symlink target: %s -> %s", linkPath, linkname)
 	}
-	if strings.Contains(linkname, "..") {
-		return fmt.Errorf("rejecting symlink target with path traversal: %s -> %s", linkPath, linkname)
-	}
 	linkDir := filepath.Dir(filepath.Join(destPath, filepath.Clean(linkPath)))
 	resolved := filepath.Clean(filepath.Join(linkDir, linkname))
 	rel, err := filepath.Rel(destPath, resolved)

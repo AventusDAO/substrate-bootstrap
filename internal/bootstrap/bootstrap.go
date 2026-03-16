@@ -26,6 +26,9 @@ type CommandExecutor interface {
 	Execute(ctx context.Context, command string) error
 }
 
+// ShellExecutor executes commands using sh -c.
+// When running in distroless or static containers, an sh-compatible shell
+// (e.g. /bin/sh or BusyBox-provided sh) must be available for bootstrap commands to succeed.
 type ShellExecutor struct{}
 
 func (s *ShellExecutor) Execute(ctx context.Context, command string) error {

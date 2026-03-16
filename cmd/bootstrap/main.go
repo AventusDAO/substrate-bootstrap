@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"go.uber.org/zap"
@@ -153,7 +154,7 @@ func checkDataDirectory(basePath string) error {
 		return fmt.Errorf("data path %s exists but is not a directory", basePath)
 	}
 
-	testFile := basePath + "/.write_test"
+	testFile := filepath.Join(basePath, ".write_test")
 	if err := os.WriteFile(testFile, []byte("ok"), 0o644); err != nil {
 		return fmt.Errorf("data directory %s is not writable: %w", basePath, err)
 	}

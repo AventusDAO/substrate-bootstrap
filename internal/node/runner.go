@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,20 +16,22 @@ import (
 )
 
 type Runner struct {
-	cfg            *config.Config
-	logger         *zap.Logger
-	MaxRetries     int
-	InitialBackoff time.Duration
-	MaxBackoff     time.Duration
+	cfg                 *config.Config
+	logger              *zap.Logger
+	MaxRetries          int
+	InitialBackoff      time.Duration
+	MaxBackoff          time.Duration
+	ShutdownGracePeriod time.Duration
 }
 
 func NewRunner(cfg *config.Config, logger *zap.Logger) *Runner {
 	return &Runner{
-		cfg:            cfg,
-		logger:         logger.With(zap.String("component", "node")),
-		MaxRetries:     3,
-		InitialBackoff: 2 * time.Second,
-		MaxBackoff:     30 * time.Second,
+		cfg:                 cfg,
+		logger:              logger.With(zap.String("component", "node")),
+		MaxRetries:          3,
+		InitialBackoff:      2 * time.Second,
+		MaxBackoff:          30 * time.Second,
+		ShutdownGracePeriod: 30 * time.Second,
 	}
 }
 
@@ -65,6 +68,9 @@ func (r *Runner) Run(ctx context.Context) error {
 
 		exitCode, terminated, err := r.runProcess(ctx, sigCh, args)
 		if terminated {
+			if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
 			r.logger.Info("node stopped by signal")
 			return nil
 		}
@@ -106,8 +112,20 @@ func (r *Runner) runProcess(ctx context.Context, sigCh <-chan os.Signal, args []
 			r.logger.Warn("failed to forward signal, killing process", zap.Error(err))
 			_ = cmd.Process.Kill()
 		}
-		<-doneCh
-		return 0, true, nil
+		gracePeriod := r.ShutdownGracePeriod
+		if gracePeriod <= 0 {
+			gracePeriod = 30 * time.Second
+		}
+		select {
+		case <-doneCh:
+			return 0, true, nil
+		case <-time.After(gracePeriod):
+			r.logger.Warn("node did not exit within grace period, force-killing",
+				zap.Duration("grace_period", gracePeriod))
+			_ = cmd.Process.Kill()
+			<-doneCh
+			return -1, true, fmt.Errorf("node did not exit within %s, force-killed", gracePeriod)
+		}
 
 	case err := <-doneCh:
 		if err == nil {
