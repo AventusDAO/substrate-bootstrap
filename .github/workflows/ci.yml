@@ -14,11 +14,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --config .golangci.yml
-          install-mode: go install
 
   test:
     runs-on: ubuntu-latest
