@@ -51,6 +51,8 @@ Configuration is YAML-based with `${ENV_VAR}` expansion. See `configs/config.yam
 | `keystore`   | `cleanup_on_stop` (when `enable_keystore: true`)                            |
 | `bootstrap`  | Commands to run before node start, required env vars                        |
 
+**Bootstrap commands** require an sh-compatible shell (`/bin/sh` or BusyBox) in the runtime. Distroless or static containers typically do not include one — use an image with a shell (e.g. Alpine, Debian slim) if you use `bootstrap.commands`.
+
 ### Node types
 
 - **RPC-only**: Add `--rpc-port`, `--rpc-external`, `--db-cache`, etc. to `chain.extra_args`. No keystore.
