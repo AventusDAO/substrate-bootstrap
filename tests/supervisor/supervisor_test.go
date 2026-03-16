@@ -74,7 +74,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	}
 }
 
-func (e *testEnv) writeConfig(role string, bootstrapCmds []string, extras map[string]string) string {
+func (e *testEnv) writeConfig(role string, bootstrapCmds []string) string {
 	e.t.Helper()
 
 	cmdsYAML := "  commands: []\n"
@@ -230,7 +230,7 @@ func runBootstrapWithSignal(t *testing.T, configPath string, dataDir string, env
 func TestSupervisor_RPCCleanStartup(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
@@ -244,7 +244,7 @@ func TestSupervisor_RPCCleanStartup(t *testing.T) {
 func TestSupervisor_ListenerCleanStartup(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("listener", nil, nil)
+	configPath := env.writeConfig("listener", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
@@ -264,7 +264,7 @@ func TestSupervisor_ListenerCleanStartup(t *testing.T) {
 func TestSupervisor_BootstrapCommandFailure(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", []string{"exit 1"}, nil)
+	configPath := env.writeConfig("rpc", []string{"exit 1"})
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
@@ -277,7 +277,7 @@ func TestSupervisor_BootstrapCommandFailure(t *testing.T) {
 func TestSupervisor_BootstrapIdempotent(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", []string{"echo bootstrap-ran"}, nil)
+	configPath := env.writeConfig("rpc", []string{"echo bootstrap-ran"})
 
 	// First run: bootstrap executes commands
 	output1, exitCode1 := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
@@ -309,12 +309,12 @@ func TestSupervisor_ConfigChangeDetected(t *testing.T) {
 	env := newTestEnv(t)
 
 	// First run with one set of commands
-	configPath := env.writeConfig("rpc", []string{"echo first-run"}, nil)
+	configPath := env.writeConfig("rpc", []string{"echo first-run"})
 	_, exitCode1 := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode1)
 
 	// Second run with different commands (config changed)
-	configPath2 := env.writeConfig("rpc", []string{"echo different-commands"}, nil)
+	configPath2 := env.writeConfig("rpc", []string{"echo different-commands"})
 	output2, exitCode2 := runBootstrap(t, configPath2, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 2, exitCode2, "expected exit code 2 for config change, output: %s", output2)
@@ -332,7 +332,7 @@ func TestSupervisor_PermissionError(t *testing.T) {
 	require.NoError(t, os.Chmod(env.basePath, 0o444))
 	t.Cleanup(func() { _ = os.Chmod(env.basePath, 0o755) })
 
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
@@ -344,7 +344,7 @@ func TestSupervisor_PermissionError(t *testing.T) {
 func TestSupervisor_NodeCrashExhaustsRetries(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	// Node always exits with code 1 -- will exhaust retries
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit1"}, 60*time.Second)
@@ -357,7 +357,7 @@ func TestSupervisor_NodeCrashExhaustsRetries(t *testing.T) {
 func TestSupervisor_NodeCrashThenRecover(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	marker := filepath.Join(env.dir, "crash_marker")
 
@@ -376,7 +376,7 @@ func TestSupervisor_NodeCrashThenRecover(t *testing.T) {
 func TestSupervisor_SignalForwarding_SIGTERM(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrapWithSignal(
 		t, configPath, env.basePath,
@@ -394,7 +394,7 @@ func TestSupervisor_SignalForwarding_SIGTERM(t *testing.T) {
 func TestSupervisor_SignalForwarding_SIGINT(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrapWithSignal(
 		t, configPath, env.basePath,
@@ -412,7 +412,7 @@ func TestSupervisor_SignalForwarding_SIGINT(t *testing.T) {
 func TestSupervisor_ListenerKeystoreCleanupAfterSignal(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("listener", nil, nil)
+	configPath := env.writeConfig("listener", nil)
 
 	keystorePath := filepath.Join(env.basePath, "keystore")
 
@@ -437,7 +437,7 @@ func TestSupervisor_BootstrapRunsRealCommands(t *testing.T) {
 	markerFile := filepath.Join(env.dir, "bootstrap_marker")
 	configPath := env.writeConfig("rpc", []string{
 		fmt.Sprintf("touch %s", markerFile),
-	}, nil)
+	})
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
@@ -452,7 +452,7 @@ func TestSupervisor_BootstrapRunsRealCommands(t *testing.T) {
 func TestSupervisor_StateFilePersistence(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", []string{"echo hello"}, nil)
+	configPath := env.writeConfig("rpc", []string{"echo hello"})
 
 	_, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode)
@@ -529,7 +529,7 @@ func TestSupervisor_NonexistentConfigFile(t *testing.T) {
 func TestSupervisor_RPCArgsCorrect(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	require.Equal(t, 0, exitCode)
@@ -549,7 +549,7 @@ func TestSupervisor_RPCArgsCorrect(t *testing.T) {
 func TestSupervisor_ListenerArgsCorrect(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("listener", nil, nil)
+	configPath := env.writeConfig("listener", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	require.Equal(t, 0, exitCode)
@@ -583,7 +583,7 @@ func TestSupervisor_FullLifecycle(t *testing.T) {
 	configPath := env.writeConfig("rpc", []string{
 		fmt.Sprintf("touch %s", markerFile),
 		fmt.Sprintf("echo 'chain_data_ready' > %s", dataFile),
-	}, nil)
+	})
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
@@ -605,14 +605,17 @@ func TestSupervisor_FullLifecycle(t *testing.T) {
 	assert.Contains(t, output, "MOCK_NODE_BLOCKS_PRODUCED=")
 
 	blocksProduced := extractValue(output, "MOCK_NODE_BLOCKS_PRODUCED=")
-	count, _ := fmt.Sscanf(blocksProduced, "%d", new(int))
-	assert.Equal(t, 1, count, "should have produced blocks")
+	var blocks int
+	n, err := fmt.Sscanf(blocksProduced, "%d", &blocks)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n, "should parse one integer")
+	assert.GreaterOrEqual(t, blocks, 1, "should have produced at least one block")
 }
 
 func TestSupervisor_StdoutStderrForwarding(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
@@ -629,7 +632,7 @@ func TestSupervisor_StdoutStderrForwarding(t *testing.T) {
 func TestSupervisor_GracefulShutdownRunningProcess(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrapWithSignal(
 		t, configPath, env.basePath,
@@ -651,7 +654,7 @@ func TestSupervisor_GracefulShutdownRunningProcess(t *testing.T) {
 func TestSupervisor_SIGINTDuringActiveProcess(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("listener", nil, nil)
+	configPath := env.writeConfig("listener", nil)
 
 	keystorePath := filepath.Join(env.basePath, "keystore")
 
@@ -677,7 +680,7 @@ func TestSupervisor_SIGINTDuringActiveProcess(t *testing.T) {
 func TestSupervisor_CrashDuringRun(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	marker := filepath.Join(env.dir, "crash_marker")
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
@@ -697,7 +700,7 @@ func TestSupervisor_CrashDuringRun(t *testing.T) {
 func TestSupervisor_CrashDuringRunExhaustsRetries(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	configPath := env.writeConfig("rpc", nil, nil)
+	configPath := env.writeConfig("rpc", nil)
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=crash_after",
@@ -723,7 +726,7 @@ func TestSupervisor_BootstrapThenLongRunningNode(t *testing.T) {
 
 	configPath := env.writeConfig("rpc", []string{
 		fmt.Sprintf("sh %s", scriptFile),
-	}, nil)
+	})
 
 	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
@@ -757,7 +760,7 @@ func TestSupervisor_IdempotentBootstrapWithLongRunningNode(t *testing.T) {
 
 	configPath := env.writeConfig("rpc", []string{
 		fmt.Sprintf("touch %s", marker),
-	}, nil)
+	})
 
 	// First run: bootstrap + node runs for a while
 	output1, exit1 := runBootstrap(t, configPath, env.basePath, []string{

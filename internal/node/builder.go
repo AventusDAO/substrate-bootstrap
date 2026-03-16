@@ -48,7 +48,10 @@ func buildChainArgs(cfg *config.Config) []string {
 func buildRelayChainArgs(cfg *config.Config) []string {
 	var args []string
 
-	args = append(args, "--name", cfg.Node.Name)
+	args = append(args,
+		"--name", cfg.Node.Name,
+		"--base-path", config.RelayChainDataPath(),
+	)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
 
 	if cfg.RelayChain.Execution != "" {

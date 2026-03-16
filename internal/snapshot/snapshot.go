@@ -18,11 +18,13 @@ type Downloader struct {
 	httpClient *http.Client
 }
 
+const defaultDownloadTimeout = 2 * time.Hour
+
 func NewDownloader(logger *zap.Logger) *Downloader {
 	return &Downloader{
 		logger: logger.With(zap.String("component", "snapshot")),
 		httpClient: &http.Client{
-			Timeout: 0,
+			Timeout: defaultDownloadTimeout,
 		},
 	}
 }
@@ -161,8 +163,8 @@ func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath st
 			zap.String("size_human", humanSize(resp.ContentLength)))
 	}
 
-	tarCmd := fmt.Sprintf("tar %s -C %s", tarFlags, destPath)
-	cmd := exec.CommandContext(ctx, "sh", "-c", tarCmd)
+	args := append(strings.Fields(tarFlags), "-C", destPath)
+	cmd := exec.CommandContext(ctx, "tar", args...)
 	cmd.Stdin = resp.Body
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
