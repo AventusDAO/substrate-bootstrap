@@ -89,7 +89,7 @@ func mainE() int {
 }
 
 func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
-	if err := checkDataDirectory(config.DataDir); err != nil {
+	if err := checkDataDirectory(config.DataDir()); err != nil {
 		return &exitError{code: ExitPermissionError, err: err}
 	}
 

@@ -107,11 +107,19 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestFixedPaths(t *testing.T) {
-	assert.Equal(t, "/data", DataDir)
+	t.Setenv("SUBSTRATE_BOOTSTRAP_DATA_DIR", "")
+	assert.Equal(t, "/data", DataDir())
 	assert.Equal(t, "/data/chain-data", ChainDataPath())
 	assert.Equal(t, "/data/relaychain-data", RelayChainDataPath())
 	assert.Equal(t, "/data/keystore", KeystorePath())
 	assert.Equal(t, "/data/bootstrap_state.json", BootstrapStatePath())
+}
+
+func TestDataDir_EnvOverride(t *testing.T) {
+	t.Setenv("SUBSTRATE_BOOTSTRAP_DATA_DIR", "/tmp/test-data")
+	assert.Equal(t, "/tmp/test-data", DataDir())
+	assert.Equal(t, "/tmp/test-data/chain-data", ChainDataPath())
+	assert.Equal(t, "/tmp/test-data/bootstrap_state.json", BootstrapStatePath())
 }
 
 func TestLoad_MinimalRPC_UsesDefaults(t *testing.T) {

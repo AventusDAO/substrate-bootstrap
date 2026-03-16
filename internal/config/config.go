@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -11,12 +12,21 @@ import (
 	"github.com/nicce/substrate-bootstrap/internal/logging"
 )
 
-const DataDir = "/data"
+const defaultDataDir = "/data"
 
-func ChainDataPath() string      { return DataDir + "/chain-data" }
-func RelayChainDataPath() string { return DataDir + "/relaychain-data" }
-func KeystorePath() string       { return DataDir + "/keystore" }
-func BootstrapStatePath() string { return DataDir + "/bootstrap_state.json" }
+// DataDir returns the root data directory. When SUBSTRATE_BOOTSTRAP_DATA_DIR is set,
+// that path is used (for integration tests); otherwise /data.
+func DataDir() string {
+	if d := os.Getenv("SUBSTRATE_BOOTSTRAP_DATA_DIR"); d != "" {
+		return filepath.Clean(d)
+	}
+	return defaultDataDir
+}
+
+func ChainDataPath() string      { return filepath.Join(DataDir(), "chain-data") }
+func RelayChainDataPath() string { return filepath.Join(DataDir(), "relaychain-data") }
+func KeystorePath() string       { return filepath.Join(DataDir(), "keystore") }
+func BootstrapStatePath() string { return filepath.Join(DataDir(), "bootstrap_state.json") }
 
 type Config struct {
 	Node       NodeConfig       `yaml:"node"`

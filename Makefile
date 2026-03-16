@@ -8,7 +8,8 @@ lint:
 	golangci-lint run
 
 test:
-	go test ./cmd/... ./internal/... -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic -timeout=60s
+	go test ./cmd/... -race -timeout=60s
+	go test ./internal/... -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic -timeout=60s
 
 coverage: test
 	@total=$$(go tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}' | tr -d '%'); \

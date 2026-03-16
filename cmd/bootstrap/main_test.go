@@ -36,8 +36,8 @@ func testLogger(t *testing.T) *zap.Logger {
 
 func requireDataDir(t *testing.T) {
 	t.Helper()
-	if err := checkDataDirectory(config.DataDir); err != nil {
-		t.Skipf("skipping: fixed data directory %s is not available: %v", config.DataDir, err)
+	if err := checkDataDirectory(config.DataDir()); err != nil {
+		t.Skipf("skipping: fixed data directory %s is not available: %v", config.DataDir(), err)
 	}
 }
 

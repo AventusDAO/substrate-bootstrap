@@ -69,7 +69,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t:         t,
 		dir:       dir,
 		basePath:  basePath,
-		stateFile: filepath.Join(dir, "bootstrap_state.json"),
+		stateFile: filepath.Join(basePath, "bootstrap_state.json"),
 		configDir: configDir,
 	}
 }
@@ -147,10 +147,14 @@ logging:
 	return path
 }
 
-func runBootstrap(t *testing.T, configPath string, env []string, timeout time.Duration) (string, int) {
+func runBootstrap(t *testing.T, configPath string, dataDir string, env []string, timeout time.Duration) (string, int) {
 	t.Helper()
 	cmd := exec.Command(bootstrapBinary, "--config", configPath)
-	cmd.Env = append(os.Environ(), env...)
+	fullEnv := append(os.Environ(), env...)
+	if dataDir != "" {
+		fullEnv = append(fullEnv, "SUBSTRATE_BOOTSTRAP_DATA_DIR="+dataDir)
+	}
+	cmd.Env = fullEnv
 
 	var out strings.Builder
 	cmd.Stdout = &out
@@ -181,10 +185,14 @@ func runBootstrap(t *testing.T, configPath string, env []string, timeout time.Du
 	}
 }
 
-func runBootstrapWithSignal(t *testing.T, configPath string, env []string, signalDelay time.Duration, sig syscall.Signal) (string, int) {
+func runBootstrapWithSignal(t *testing.T, configPath string, dataDir string, env []string, signalDelay time.Duration, sig syscall.Signal) (string, int) {
 	t.Helper()
 	cmd := exec.Command(bootstrapBinary, "--config", configPath)
-	cmd.Env = append(os.Environ(), env...)
+	fullEnv := append(os.Environ(), env...)
+	if dataDir != "" {
+		fullEnv = append(fullEnv, "SUBSTRATE_BOOTSTRAP_DATA_DIR="+dataDir)
+	}
+	cmd.Env = fullEnv
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	var out strings.Builder
@@ -224,7 +232,7 @@ func TestSupervisor_RPCCleanStartup(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 0, exitCode, "expected clean exit, output: %s", output)
 	assert.Contains(t, output, "MOCK_NODE_ARGS=")
@@ -238,7 +246,7 @@ func TestSupervisor_ListenerCleanStartup(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("listener", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 0, exitCode, "expected clean exit, output: %s", output)
 	assert.Contains(t, output, "MOCK_NODE_ARGS=")
@@ -246,7 +254,7 @@ func TestSupervisor_ListenerCleanStartup(t *testing.T) {
 	assert.NotContains(t, output, "--rpc-port")
 
 	// Keystore directory should be cleaned up
-	keystorePath := filepath.Join(env.dir, "keystore")
+	keystorePath := filepath.Join(env.basePath, "keystore")
 	_, err := os.Stat(keystorePath)
 	assert.True(t, os.IsNotExist(err), "keystore should be cleaned up after exit")
 }
@@ -258,7 +266,7 @@ func TestSupervisor_BootstrapCommandFailure(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", []string{"exit 1"}, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 1, exitCode, "expected exit code 1, output: %s", output)
 	assert.NotContains(t, output, "MOCK_NODE_ARGS=", "node should not have started")
@@ -272,7 +280,7 @@ func TestSupervisor_BootstrapIdempotent(t *testing.T) {
 	configPath := env.writeConfig("rpc", []string{"echo bootstrap-ran"}, nil)
 
 	// First run: bootstrap executes commands
-	output1, exitCode1 := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output1, exitCode1 := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode1)
 	assert.Contains(t, output1, "bootstrap-ran")
 
@@ -281,7 +289,7 @@ func TestSupervisor_BootstrapIdempotent(t *testing.T) {
 	require.NoError(t, err, "state file should exist after bootstrap")
 
 	// Second run: bootstrap should skip (already done)
-	output2, exitCode2 := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output2, exitCode2 := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode2)
 	// "bootstrap-ran" should NOT appear in second run's output because commands were skipped
 	lines := strings.Split(output2, "\n")
@@ -302,12 +310,12 @@ func TestSupervisor_ConfigChangeDetected(t *testing.T) {
 
 	// First run with one set of commands
 	configPath := env.writeConfig("rpc", []string{"echo first-run"}, nil)
-	_, exitCode1 := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	_, exitCode1 := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode1)
 
 	// Second run with different commands (config changed)
 	configPath2 := env.writeConfig("rpc", []string{"echo different-commands"}, nil)
-	output2, exitCode2 := runBootstrap(t, configPath2, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output2, exitCode2 := runBootstrap(t, configPath2, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 2, exitCode2, "expected exit code 2 for config change, output: %s", output2)
 }
@@ -326,7 +334,7 @@ func TestSupervisor_PermissionError(t *testing.T) {
 
 	configPath := env.writeConfig("rpc", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 3, exitCode, "expected exit code 3 for permission error, output: %s", output)
 }
@@ -339,7 +347,7 @@ func TestSupervisor_NodeCrashExhaustsRetries(t *testing.T) {
 	configPath := env.writeConfig("rpc", nil, nil)
 
 	// Node always exits with code 1 -- will exhaust retries
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit1"}, 60*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit1"}, 60*time.Second)
 
 	assert.NotEqual(t, 0, exitCode, "should fail after exhausting retries, output: %s", output)
 }
@@ -353,7 +361,7 @@ func TestSupervisor_NodeCrashThenRecover(t *testing.T) {
 
 	marker := filepath.Join(env.dir, "crash_marker")
 
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=crash_then_ok",
 		"MOCK_NODE_MARKER=" + marker,
 	}, 30*time.Second)
@@ -371,7 +379,7 @@ func TestSupervisor_SignalForwarding_SIGTERM(t *testing.T) {
 	configPath := env.writeConfig("rpc", nil, nil)
 
 	output, exitCode := runBootstrapWithSignal(
-		t, configPath,
+		t, configPath, env.basePath,
 		[]string{"MOCK_NODE_MODE=signal"},
 		1*time.Second,
 		syscall.SIGTERM,
@@ -389,7 +397,7 @@ func TestSupervisor_SignalForwarding_SIGINT(t *testing.T) {
 	configPath := env.writeConfig("rpc", nil, nil)
 
 	output, exitCode := runBootstrapWithSignal(
-		t, configPath,
+		t, configPath, env.basePath,
 		[]string{"MOCK_NODE_MODE=signal"},
 		1*time.Second,
 		syscall.SIGINT,
@@ -406,10 +414,10 @@ func TestSupervisor_ListenerKeystoreCleanupAfterSignal(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("listener", nil, nil)
 
-	keystorePath := filepath.Join(env.dir, "keystore")
+	keystorePath := filepath.Join(env.basePath, "keystore")
 
 	output, exitCode := runBootstrapWithSignal(
-		t, configPath,
+		t, configPath, env.basePath,
 		[]string{"MOCK_NODE_MODE=signal"},
 		1*time.Second,
 		syscall.SIGTERM,
@@ -431,7 +439,7 @@ func TestSupervisor_BootstrapRunsRealCommands(t *testing.T) {
 		fmt.Sprintf("touch %s", markerFile),
 	}, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 
 	assert.Equal(t, 0, exitCode, "output: %s", output)
 
@@ -446,7 +454,7 @@ func TestSupervisor_StateFilePersistence(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", []string{"echo hello"}, nil)
 
-	_, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	_, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	assert.Equal(t, 0, exitCode)
 
 	data, err := os.ReadFile(env.stateFile)
@@ -523,7 +531,7 @@ func TestSupervisor_RPCArgsCorrect(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	require.Equal(t, 0, exitCode)
 
 	argsLine := extractMockNodeArgs(output)
@@ -543,7 +551,7 @@ func TestSupervisor_ListenerArgsCorrect(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("listener", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{"MOCK_NODE_MODE=exit0"}, 10*time.Second)
 	require.Equal(t, 0, exitCode)
 
 	argsLine := extractMockNodeArgs(output)
@@ -577,7 +585,7 @@ func TestSupervisor_FullLifecycle(t *testing.T) {
 		fmt.Sprintf("echo 'chain_data_ready' > %s", dataFile),
 	}, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
 		"MOCK_NODE_DURATION=2s",
 		"MOCK_NODE_INTERVAL=200ms",
@@ -606,7 +614,7 @@ func TestSupervisor_StdoutStderrForwarding(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
 		"MOCK_NODE_DURATION=1s",
 		"MOCK_NODE_INTERVAL=100ms",
@@ -624,7 +632,7 @@ func TestSupervisor_GracefulShutdownRunningProcess(t *testing.T) {
 	configPath := env.writeConfig("rpc", nil, nil)
 
 	output, exitCode := runBootstrapWithSignal(
-		t, configPath,
+		t, configPath, env.basePath,
 		[]string{
 			"MOCK_NODE_MODE=run_for",
 			"MOCK_NODE_DURATION=30s",
@@ -645,10 +653,10 @@ func TestSupervisor_SIGINTDuringActiveProcess(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("listener", nil, nil)
 
-	keystorePath := filepath.Join(env.dir, "keystore")
+	keystorePath := filepath.Join(env.basePath, "keystore")
 
 	output, exitCode := runBootstrapWithSignal(
-		t, configPath,
+		t, configPath, env.basePath,
 		[]string{
 			"MOCK_NODE_MODE=run_for",
 			"MOCK_NODE_DURATION=30s",
@@ -672,7 +680,7 @@ func TestSupervisor_CrashDuringRun(t *testing.T) {
 	configPath := env.writeConfig("rpc", nil, nil)
 
 	marker := filepath.Join(env.dir, "crash_marker")
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=crash_after_then_ok",
 		"MOCK_NODE_DURATION=500ms",
 		"MOCK_NODE_RUN_DURATION=1s",
@@ -691,7 +699,7 @@ func TestSupervisor_CrashDuringRunExhaustsRetries(t *testing.T) {
 	env := newTestEnv(t)
 	configPath := env.writeConfig("rpc", nil, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=crash_after",
 		"MOCK_NODE_DURATION=500ms",
 	}, 60*time.Second)
@@ -717,7 +725,7 @@ func TestSupervisor_BootstrapThenLongRunningNode(t *testing.T) {
 		fmt.Sprintf("sh %s", scriptFile),
 	}, nil)
 
-	output, exitCode := runBootstrap(t, configPath, []string{
+	output, exitCode := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
 		"MOCK_NODE_DURATION=3s",
 		"MOCK_NODE_INTERVAL=500ms",
@@ -752,7 +760,7 @@ func TestSupervisor_IdempotentBootstrapWithLongRunningNode(t *testing.T) {
 	}, nil)
 
 	// First run: bootstrap + node runs for a while
-	output1, exit1 := runBootstrap(t, configPath, []string{
+	output1, exit1 := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
 		"MOCK_NODE_DURATION=1s",
 	}, 10*time.Second)
@@ -764,7 +772,7 @@ func TestSupervisor_IdempotentBootstrapWithLongRunningNode(t *testing.T) {
 	require.NoError(t, os.Remove(marker))
 
 	// Second run: bootstrap skipped, node still runs
-	output2, exit2 := runBootstrap(t, configPath, []string{
+	output2, exit2 := runBootstrap(t, configPath, env.basePath, []string{
 		"MOCK_NODE_MODE=run_for",
 		"MOCK_NODE_DURATION=1s",
 	}, 10*time.Second)
