@@ -30,7 +30,6 @@
       "section": "Code Refactoring"
     }
   ],
-  "release-type": "simple",
   "packages": {
     ".": {
       "release-type": "simple",
