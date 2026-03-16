@@ -252,6 +252,9 @@ func extractTarSecure(destPath string, r io.Reader) error {
 			if err := validateSymlinkTarget(absDest, hdr.Name, hdr.Linkname); err != nil {
 				return err
 			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return fmt.Errorf("creating parent for symlink %s: %w", hdr.Name, err)
+			}
 			if err := os.Symlink(hdr.Linkname, target); err != nil {
 				return fmt.Errorf("creating symlink %s: %w", hdr.Name, err)
 			}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -93,8 +94,9 @@ func (b *Bootstrapper) Run(ctx context.Context) error {
 			return nil
 		}
 		if existing.CommandsHash != currentHash {
-			return fmt.Errorf("bootstrap config changed (hash %s -> %s); wipe /data and restart",
-				existing.CommandsHash, currentHash)
+			dataDir := filepath.Dir(b.stateFile)
+			return fmt.Errorf("bootstrap config changed (hash %s -> %s); wipe %s and restart",
+				existing.CommandsHash, currentHash, dataDir)
 		}
 		if existing.Phase == PhaseCommands {
 			return b.resumeCommands(ctx, existing)

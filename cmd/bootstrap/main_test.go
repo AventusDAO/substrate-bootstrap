@@ -36,9 +36,8 @@ func testLogger(t *testing.T) *zap.Logger {
 
 func requireDataDir(t *testing.T) {
 	t.Helper()
-	if err := checkDataDirectory(config.DataDir()); err != nil {
-		t.Skipf("skipping: fixed data directory %s is not available: %v", config.DataDir(), err)
-	}
+	t.Setenv("SUBSTRATE_BOOTSTRAP_DATA_DIR", t.TempDir())
+	require.NoError(t, checkDataDirectory(config.DataDir()))
 }
 
 func TestMain_ShowVersion(t *testing.T) {

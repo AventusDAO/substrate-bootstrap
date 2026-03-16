@@ -28,13 +28,13 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(tmpDir)
 
 	bootstrapBinary = filepath.Join(tmpDir, "substrate-bootstrap")
 	cmd := exec.Command("go", "build", "-o", bootstrapBinary, "../../cmd/bootstrap")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build substrate-bootstrap: %v\n", err)
+		os.RemoveAll(tmpDir)
 		os.Exit(1)
 	}
 
@@ -43,10 +43,13 @@ func TestMain(m *testing.M) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build mock-node: %v\n", err)
+		os.RemoveAll(tmpDir)
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+	os.RemoveAll(tmpDir)
+	os.Exit(code)
 }
 
 type testEnv struct {

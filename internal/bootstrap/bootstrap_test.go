@@ -118,7 +118,8 @@ func TestBootstrapper_ConfigChangeDetection(t *testing.T) {
 	err = b.Run(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bootstrap config changed")
-	assert.Contains(t, err.Error(), "wipe /data")
+	assert.Contains(t, err.Error(), "wipe")
+	assert.Contains(t, err.Error(), dir, "error should include effective data dir path")
 	assert.Empty(t, exec.commands)
 }
 
