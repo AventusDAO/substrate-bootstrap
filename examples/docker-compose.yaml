@@ -1,0 +1,68 @@
+services:
+  # # --- Parachain ---
+
+  parachain-rpc:
+    image: substrate-bootstrap:latest
+    container_name: parachain-rpc
+    command: ["--config", "/etc/bootstrap/configs/parachain-rpc.yaml"]
+    volumes:
+      - parachain-rpc-data:/data
+      - ./parachain-rpc.yaml:/etc/bootstrap/configs/parachain-rpc.yaml:ro
+    ports:
+      - "9944:9944" # JSON-RPC
+      - "40333:40333" # Parachain P2P
+      - "30333:30333" # Relay chain P2P
+      - "9615:9615" # Prometheus
+    restart: unless-stopped
+
+  parachain-listener:
+    image: substrate-bootstrap:latest
+    container_name: parachain-listener
+    command: ["--config", "/etc/bootstrap/configs/parachain-listener.yaml"]
+    environment:
+      - PRIVATE_SIGNING_KEY=${PRIVATE_SIGNING_KEY}
+    volumes:
+      - parachain-listener-data:/data
+      - ./parachain-listener.yaml:/etc/bootstrap/configs/parachain-listener.yaml:ro
+    ports:
+      - "40334:40333" # Parachain P2P
+      - "30334:30333" # Relay chain P2P
+      - "9616:9615" # Prometheus
+    restart: unless-stopped
+
+  # # --- Solochain ---
+
+  solochain-rpc:
+    image: substrate-bootstrap:latest
+    container_name: solochain-rpc
+    platform: linux/amd64
+    #command: ["--config", "/etc/bootstrap/configs/solochain-rpc.yaml"]
+    volumes:
+      - ./data:/data
+      - ./solochain-testnet.yaml:/opt/bootstrap/config.yaml:ro
+    ports:
+      - "9945:9944" # JSON-RPC
+      - "40335:40333" # P2P
+      - "9617:9615" # Prometheus
+    restart: unless-stopped
+
+  solochain-listener:
+    image: substrate-bootstrap:latest
+    container_name: solochain-listener
+    command: ["--config", "/etc/bootstrap/configs/solochain-listener.yaml"]
+    environment:
+      - REGISTERED_NODE_ID=${REGISTERED_NODE_ID}
+      - PRIVATE_SIGNING_KEY=${PRIVATE_SIGNING_KEY}
+    volumes:
+      - solochain-listener-data:/data
+      - ./solochain-listener.yaml:/etc/bootstrap/configs/solochain-listener.yaml:ro
+    ports:
+      - "40336:40333" # P2P
+      - "9618:9615" # Prometheus
+    restart: unless-stopped
+
+volumes:
+  parachain-rpc-data:
+  parachain-listener-data:
+  solochain-rpc-data:
+  solochain-listener-data:

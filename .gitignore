@@ -1,0 +1,25 @@
+# Binaries
+bin/
+substrate-bootstrap
+
+# Test artifacts
+coverage.out
+*.test
+
+# Runtime data
+data/
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup configs
+*.bck.yml

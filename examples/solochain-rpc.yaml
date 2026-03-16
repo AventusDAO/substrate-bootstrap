@@ -1,0 +1,25 @@
+# Solochain RPC node configuration
+# Standalone chain (no relay chain). Serves JSON-RPC endpoints.
+# RPC args via chain.extra_args.
+
+node:
+  name: "${HOSTNAME}"
+  mode: solochain
+  # binary: /usr/bin/node
+
+chain:
+  chain_spec: /etc/bootstrap/configs/mainnet.json
+  blocks_pruning: archive-canonical
+  state_pruning: archive-canonical
+  bootnodes:
+    - /dns/bootnode-01.example.io/tcp/40333/p2p/12D3KooW...
+    - /dns/bootnode-02.example.io/tcp/40333/p2p/12D3KooW...
+  extra_args:
+    - "--rpc-port=9944"
+    - "--rpc-external"
+    - "--rpc-cors=all"
+    - "--db-cache=2048"
+
+telemetry:
+  urls:
+    - "wss://telemetry.internal.aventus.io 0"

@@ -1,0 +1,22 @@
+name: Release Please – Automerge
+
+on:
+    pull_request_target:
+        types: [opened, synchronize, reopened]
+
+jobs:
+    automerge:
+        if: >-
+            startsWith(github.event.pull_request.head.ref, 'release-please-')
+            && github.event.pull_request.head.repo.full_name == github.repository
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Enable automerge
+              uses: peter-evans/enable-pull-request-automerge@v3
+              with:
+                  token: ${{ secrets.CI_GITHUB_PAT }}
+                  pull-request-number: ${{ github.event.pull_request.number }}
+                  merge-method: squash

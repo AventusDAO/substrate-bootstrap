@@ -1,0 +1,38 @@
+# Parachain Hybrid node configuration
+# Both RPC endpoints and keystore (offchain workers). enable_keystore: true + RPC args in extra_args.
+
+node:
+  name: "${HOSTNAME}"
+  enable_keystore: true
+  mode: parachain
+  # binary: /usr/bin/node
+
+chain:
+  chain_spec: /opt/chainspecs/parachain.json
+  bootnodes:
+    - /dns/parachain-boot-1.example.io/tcp/40333/p2p/12D3KooW...
+    - /dns/parachain-boot-2.example.io/tcp/40333/p2p/12D3KooW...
+  extra_args:
+    - "--rpc-port=9944"
+    - "--rpc-external"
+    - "--rpc-cors=all"
+    - "--db-cache=2048"
+    - "--offchain-worker=always"
+
+relay_chain:
+  chain_spec: /opt/chainspecs/polkadot.json
+  bootnodes:
+    - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
+
+telemetry:
+  urls:
+    - "wss://telemetry.example.io/submit 0"
+
+keystore:
+  # cleanup_on_stop: false        # default; set true only if keys are re-provisioned every boot
+
+bootstrap:
+  required_env:
+    - PRIVATE_SIGNING_KEY
+  commands:
+    - "/usr/bin/node key insert --key-type nodk --scheme sr25519 --keystore-path /data/keystore --suri ${PRIVATE_SIGNING_KEY}"
