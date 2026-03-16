@@ -1,8 +1,12 @@
 package snapshot
 
 import (
+	"archive/tar"
+	"compress/bzip2"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -10,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4/v4"
+	"github.com/ulikunitz/xz"
 	"go.uber.org/zap"
 )
 
@@ -135,10 +142,7 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 }
 
 func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath string) error {
-	tarFlags := detectTarFlags(url)
-
 	d.logger.Info("streaming snapshot via tar",
-		zap.String("tar_flags", tarFlags),
 		zap.String("dest", destPath))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -163,17 +167,125 @@ func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath st
 			zap.String("size_human", humanSize(resp.ContentLength)))
 	}
 
-	args := append(strings.Fields(tarFlags), "-C", destPath)
-	cmd := exec.CommandContext(ctx, "tar", args...)
-	cmd.Stdin = resp.Body
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	decomp, err := newDecompressor(url, resp.Body)
+	if err != nil {
+		return fmt.Errorf("decompressor: %w", err)
+	}
+	defer decomp.Close()
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("extracting snapshot with tar: %w", err)
+	if err := extractTarSecure(destPath, decomp); err != nil {
+		return fmt.Errorf("extracting snapshot: %w", err)
 	}
 
 	d.logger.Info("tar extraction completed", zap.Duration("elapsed", time.Since(start)))
+	return nil
+}
+
+func newDecompressor(url string, r io.Reader) (io.ReadCloser, error) {
+	lower := strings.ToLower(url)
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz"):
+		return gzip.NewReader(r)
+	case strings.HasSuffix(lower, ".tar.lz4"):
+		return io.NopCloser(lz4.NewReader(r)), nil
+	case strings.HasSuffix(lower, ".tar.zst") || strings.HasSuffix(lower, ".tar.zstd"):
+		zr, err := zstd.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		return zr.IOReadCloser(), nil
+	case strings.HasSuffix(lower, ".tar.bz2"):
+		return io.NopCloser(bzip2.NewReader(r)), nil
+	case strings.HasSuffix(lower, ".tar.xz"):
+		xr, err := xz.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		return io.NopCloser(xr), nil
+	case strings.HasSuffix(lower, ".tar"):
+		return io.NopCloser(r), nil
+	default:
+		return gzip.NewReader(r)
+	}
+}
+
+func extractTarSecure(destPath string, r io.Reader) error {
+	absDest, err := filepath.Abs(destPath)
+	if err != nil {
+		return fmt.Errorf("resolving dest path: %w", err)
+	}
+
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("reading tar: %w", err)
+		}
+
+		if err := validateTarPath(absDest, hdr); err != nil {
+			return err
+		}
+
+		target := filepath.Join(absDest, filepath.Clean(hdr.Name))
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return fmt.Errorf("creating directory %s: %w", hdr.Name, err)
+			}
+		case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA for compatibility with legacy archives
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return fmt.Errorf("creating parent for %s: %w", hdr.Name, err)
+			}
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(hdr.Mode)&0o777)
+			if err != nil {
+				return fmt.Errorf("creating file %s: %w", hdr.Name, err)
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				return fmt.Errorf("writing file %s: %w", hdr.Name, err)
+			}
+			f.Close()
+		case tar.TypeSymlink:
+			if err := validateSymlinkTarget(absDest, hdr.Name, hdr.Linkname); err != nil {
+				return err
+			}
+			if err := os.Symlink(hdr.Linkname, target); err != nil {
+				return fmt.Errorf("creating symlink %s: %w", hdr.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateTarPath(destPath string, hdr *tar.Header) error {
+	if filepath.IsAbs(hdr.Name) {
+		return fmt.Errorf("rejecting absolute path in archive: %s", hdr.Name)
+	}
+	clean := filepath.Clean(hdr.Name)
+	target := filepath.Join(destPath, clean)
+	rel, err := filepath.Rel(destPath, target)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return fmt.Errorf("rejecting path outside destination: %s", hdr.Name)
+	}
+	return nil
+}
+
+func validateSymlinkTarget(destPath, linkPath, linkname string) error {
+	if filepath.IsAbs(linkname) {
+		return fmt.Errorf("rejecting absolute symlink target: %s -> %s", linkPath, linkname)
+	}
+	if strings.Contains(linkname, "..") {
+		return fmt.Errorf("rejecting symlink target with path traversal: %s -> %s", linkPath, linkname)
+	}
+	linkDir := filepath.Dir(filepath.Join(destPath, filepath.Clean(linkPath)))
+	resolved := filepath.Clean(filepath.Join(linkDir, linkname))
+	rel, err := filepath.Rel(destPath, resolved)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return fmt.Errorf("rejecting symlink escaping destination: %s -> %s", linkPath, linkname)
+	}
 	return nil
 }
 
@@ -194,27 +306,6 @@ func isTarURL(url string) bool {
 		}
 	}
 	return false
-}
-
-func detectTarFlags(url string) string {
-	lower := strings.ToLower(url)
-
-	switch {
-	case strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz"):
-		return "xzf -"
-	case strings.HasSuffix(lower, ".tar.lz4"):
-		return "--use-compress-program=lz4 -xf -"
-	case strings.HasSuffix(lower, ".tar.zst") || strings.HasSuffix(lower, ".tar.zstd"):
-		return "--use-compress-program=zstd -xf -"
-	case strings.HasSuffix(lower, ".tar.bz2"):
-		return "xjf -"
-	case strings.HasSuffix(lower, ".tar.xz"):
-		return "xJf -"
-	case strings.HasSuffix(lower, ".tar"):
-		return "xf -"
-	default:
-		return "xzf -"
-	}
 }
 
 func dirHasData(path string) (bool, error) {

@@ -58,7 +58,8 @@ func (r *Runner) Run(ctx context.Context) error {
 				r.logger.Info("received signal during backoff, exiting", zap.String("signal", sig.String()))
 				return nil
 			case <-ctx.Done():
-				return ctx.Err()
+				r.logger.Info("context cancelled during backoff, exiting")
+				return nil
 			}
 		}
 

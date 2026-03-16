@@ -174,24 +174,38 @@ func TestIsTarURL(t *testing.T) {
 	}
 }
 
-func TestDetectTarFlags(t *testing.T) {
-	tests := []struct {
-		url      string
-		expected string
-	}{
-		{"https://example.io/snap.tar.gz", "xzf -"},
-		{"https://example.io/snap.tgz", "xzf -"},
-		{"https://example.io/snap.tar.lz4", "--use-compress-program=lz4 -xf -"},
-		{"https://example.io/snap.tar.zst", "--use-compress-program=zstd -xf -"},
-		{"https://example.io/snap.tar.zstd", "--use-compress-program=zstd -xf -"},
-		{"https://example.io/snap.tar.bz2", "xjf -"},
-		{"https://example.io/snap.tar.xz", "xJf -"},
-		{"https://example.io/snap.tar", "xf -"},
-		{"https://example.io/snap", "xzf -"},
-	}
-	for _, tt := range tests {
-		assert.Equal(t, tt.expected, detectTarFlags(tt.url), "url: %s", tt.url)
-	}
+func TestExtractTarSecure_RejectsPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+
+	malicious := createTarGzServer(t, map[string]string{
+		"../../../etc/passwd": "malicious",
+	})
+	defer malicious.Close()
+
+	d := testDownloader(t)
+	_, err := d.SyncIfNeeded(context.Background(), malicious.URL+"/evil.tar.gz", dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rejecting path outside destination")
+}
+
+func TestExtractTarSecure_RejectsAbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gw := gzip.NewWriter(w)
+		tw := tar.NewWriter(gw)
+		hdr := &tar.Header{Name: "/etc/passwd", Mode: 0o644, Size: 9}
+		_ = tw.WriteHeader(hdr)
+		_, _ = tw.Write([]byte("malicious"))
+		_ = tw.Close()
+		_ = gw.Close()
+	}))
+	defer server.Close()
+
+	d := testDownloader(t)
+	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/evil.tar.gz", dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute path")
 }
 
 func TestDirHasData(t *testing.T) {
