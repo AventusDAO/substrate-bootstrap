@@ -1,0 +1,33 @@
+# Solochain Listener node configuration
+# Standalone chain with offchain workers and keystore.
+
+node:
+  name: "${HOSTNAME}"
+  enable_keystore: true
+  mode: solochain
+  # binary: /usr/bin/node
+
+chain:
+  chain_spec: /opt/chainspecs/mainnet.json
+  blocks_pruning: archive-canonical
+  state_pruning: archive-canonical
+  bootnodes:
+    - /dns/bootnode-01.example.io/tcp/40333/p2p/12D3KooW...
+    - /dns/bootnode-02.example.io/tcp/40333/p2p/12D3KooW...
+  extra_args:
+    - "--offchain-worker=always"
+    - "--registered-node-id=${REGISTERED_NODE_ID}"
+
+telemetry:
+  urls:
+    - "wss://telemetry.example.io/submit 0"
+
+keystore:
+  # cleanup_on_stop: false        # default; set true only if keys are re-provisioned every boot
+
+bootstrap:
+  required_env:
+    - REGISTERED_NODE_ID
+    - PRIVATE_SIGNING_KEY
+  commands:
+    - "/usr/bin/node key insert --key-type nodk --scheme sr25519 --keystore-path /data/keystore --suri ${PRIVATE_SIGNING_KEY}"

@@ -1,0 +1,32 @@
+# Parachain RPC node configuration
+# Serves JSON-RPC endpoints. No keystore, no offchain worker.
+# RPC args via chain.extra_args.
+
+node:
+  name: "${HOSTNAME}"
+  mode: parachain
+  # binary: /usr/bin/node
+
+chain:
+  chain_spec: /opt/chainspecs/parachain.json
+  bootnodes:
+    - /dns/parachain-boot-1.example.io/tcp/40333/p2p/12D3KooW...
+    - /dns/parachain-boot-2.example.io/tcp/40333/p2p/12D3KooW...
+  extra_args:
+    - "--rpc-port=9944"
+    - "--rpc-external"
+    - "--rpc-cors=all"
+    - "--db-cache=2048"
+  # blocks_pruning: archive-canonical
+  # state_pruning: "256"
+  # snapshot_url: https://snapshots.example.io/parachain-prune/20260304
+
+relay_chain:
+  chain_spec: /opt/chainspecs/polkadot.json
+  bootnodes:
+    - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
+  # snapshot_url: https://snapshots.polkadot.io/polkadot-paritydb-prune/20260304-062636
+
+telemetry:
+  urls:
+    - "wss://telemetry.example.io/submit 0"

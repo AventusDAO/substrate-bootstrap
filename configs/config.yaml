@@ -1,0 +1,75 @@
+# substrate-bootstrap configuration
+# Only override what differs from defaults (see internal/config/config.go DefaultConfig).
+# Default mode is "parachain". Set node.mode to "solochain" for standalone chains.
+#
+# RPC: Add --rpc-port, --rpc-external, --db-cache, etc. via chain.extra_args.
+# Keystore: Set node.enable_keystore: true for listener/hybrid nodes (adds --keystore-path, runs keystore lifecycle).
+#
+# Data volumes are fixed (not configurable):
+#   /data/chain-data        - chain data (--base-path target)
+#   /data/relaychain-data   - relay chain snapshots (parachain mode only)
+#   /data/keystore          - keystore files (when enable_keystore: true)
+#   /data/bootstrap_state.json - bootstrap state tracking
+
+node:
+  name: "${HOSTNAME}"
+  # enable_keystore: false                 # default; true for listener/hybrid nodes
+  # mode: parachain                       # "parachain" (default) or "solochain"
+  # binary: /usr/bin/node                 # path to node binary
+
+# In parachain mode, these are the parachain args (before the -- separator).
+# In solochain mode, this is the main (and only) chain config.
+chain:
+  chain_spec: /opt/chainspecs/parachain.json
+  bootnodes:
+    - /dns/parachain-boot-1.example.io/tcp/40333/p2p/12D3KooW...
+    - /dns/parachain-boot-2.example.io/tcp/40333/p2p/12D3KooW...
+  # blocks_pruning: archive-canonical     # default; use "archive" to keep all blocks
+  # state_pruning: "256"                  # default; use "archive" to keep all state
+  # snapshot_url: ""                      # rclone URL (polkadot-style) or tar archive URL
+  # extra_args:                           # RPC args, offchain-worker, db-cache, etc.
+  #   - "--rpc-port=9944"
+  #   - "--rpc-external"
+  #   - "--rpc-cors=all"
+  #   - "--db-cache=2048"
+  #   - "--offchain-worker=always"         # for listener/hybrid nodes
+
+relay_chain:
+  chain_spec: /opt/chainspecs/polkadot.json
+  bootnodes:
+    - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
+  # Uses rclone for Polkadot-style snapshots (files.txt manifest + parallel downloads).
+  # For tar archives, just use a URL ending in .tar.gz, .tar.lz4, etc.
+  # snapshot_url: https://snapshots.polkadot.io/polkadot-paritydb-prune/20260304-062636
+
+telemetry:
+  urls:
+    - "wss://telemetry.example.io/submit 0"
+
+# bootstrap:
+#   required_env:                         # fail if these env vars are not set
+#     - PRIVATE_SIGNING_KEY
+#   commands:                             # shell commands to run before node start
+#     - "/usr/bin/node key insert --key-type nodk --scheme sr25519 --keystore-path /data/keystore --suri ${PRIVATE_SIGNING_KEY}"
+
+# --- Solochain example (uncomment and adjust) ---
+# node:
+#   name: "${HOSTNAME}"
+#   mode: solochain
+#
+# chain:
+#   chain_spec: /opt/chainspecs/mainnet.json
+#   blocks_pruning: archive-canonical
+#   state_pruning: archive-canonical
+#   bootnodes:
+#     - /dns/bootnode-01.example.io/tcp/40333/p2p/12D3KooW...
+#   extra_args:
+#     - "--offchain-worker=always"
+#     - "--registered-node-id=${REGISTERED_NODE_ID}"
+#
+# bootstrap:
+#   required_env:
+#     - REGISTERED_NODE_ID
+#     - PRIVATE_SIGNING_KEY
+#   commands:
+#     - "/usr/bin/node key insert --key-type nodk --scheme sr25519 --keystore-path /data/keystore --suri ${PRIVATE_SIGNING_KEY}"

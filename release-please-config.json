@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": false,
+  "bump-patch-for-minor-pre-major": false,
+  "include-component-in-tag": false,
+  "tag-separator": "-",
+  "separate-pull-requests": false,
+  "group-pull-request-title-pattern": "chore: release ${branch}",
+  "release-search-depth": 400,
+  "commit-search-depth": 500,
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "chore",
+      "section": "Miscellaneous"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation"
+    },
+    {
+      "type": "refactor",
+      "section": "Code Refactoring"
+    }
+  ],
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
