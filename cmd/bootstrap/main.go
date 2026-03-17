@@ -64,6 +64,8 @@ func mainE() int {
 	}
 	defer func() { _ = logger.Sync() }()
 
+	logBootnodeWarnings(cfg, logger)
+
 	logger.Info("substrate-bootstrap starting",
 		zap.String("version", Version),
 		zap.String("build_time", BuildTime),
@@ -90,14 +92,22 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	var chainSnap, relaySnap *snapshot.SyncResult
 
 	if cfg.Chain.SnapshotURL != "" {
-		result, err := snapDl.SyncIfNeeded(ctx, cfg.Chain.SnapshotURL, config.ChainDataPath())
+		chainDest := config.ChainDataPath()
+		if cfg.Chain.SnapshotChainPath != "" {
+			chainDest = config.ChainSnapshotPath(cfg.Chain.SnapshotChainPath)
+		}
+		result, err := snapDl.SyncIfNeeded(ctx, cfg.Chain.SnapshotURL, chainDest)
 		if err != nil {
 			return fmt.Errorf("chain snapshot: %w", err)
 		}
 		chainSnap = result
 	}
 	if !cfg.IsSolochain() && cfg.RelayChain.SnapshotURL != "" {
-		result, err := snapDl.SyncIfNeeded(ctx, cfg.RelayChain.SnapshotURL, config.RelayChainDataPath())
+		relayDest := config.RelayChainDataPath()
+		if cfg.RelayChain.RelayChainPath != "" {
+			relayDest = config.RelayChainSnapshotPath(cfg.RelayChain.RelayChainPath)
+		}
+		result, err := snapDl.SyncIfNeeded(ctx, cfg.RelayChain.SnapshotURL, relayDest)
 		if err != nil {
 			return fmt.Errorf("relay chain snapshot: %w", err)
 		}
@@ -128,6 +138,19 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	}
 
 	return err
+}
+
+func logBootnodeWarnings(cfg *config.Config, logger *zap.Logger) {
+	chainBootnodes := cfg.Chain.Bootnodes
+	if len(cfg.Chain.OverrideBootnodes) > 0 {
+		chainBootnodes = cfg.Chain.OverrideBootnodes
+	}
+	if len(chainBootnodes) == 0 {
+		logger.Warn("no chain bootnodes configured in config; if the chainspec also lacks bootnodes, the node may be unable to peer")
+	}
+	if !cfg.IsSolochain() && len(cfg.RelayChain.Bootnodes) == 0 {
+		logger.Warn("no relay_chain bootnodes configured in config; if the relay chainspec also lacks bootnodes, the node may be unable to peer")
+	}
 }
 
 func checkDataDirectory(basePath string) error {

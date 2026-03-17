@@ -50,6 +50,12 @@ func TestNewLogger_Console(t *testing.T) {
 	assert.NotNil(t, logger)
 }
 
+func TestNewLogger_Node(t *testing.T) {
+	logger, err := NewLogger(Config{Level: "info", Format: "node"}, "my-node")
+	require.NoError(t, err)
+	assert.NotNil(t, logger)
+}
+
 func TestNewLogger_DefaultFormat(t *testing.T) {
 	logger, err := NewLogger(Config{Level: "warn", Format: ""}, "node-1")
 	require.NoError(t, err)

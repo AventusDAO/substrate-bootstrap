@@ -25,6 +25,19 @@ func DataDir() string {
 
 func ChainDataPath() string      { return filepath.Join(DataDir(), "chain-data") }
 func RelayChainDataPath() string { return filepath.Join(DataDir(), "relaychain-data") }
+
+// ChainSnapshotPath returns the paritydb path for chain (parachain/solochain) snapshots.
+// Matches node layout: base-path/chains/<chain_path>/paritydb/
+func ChainSnapshotPath(chainPath string) string {
+	return filepath.Join(ChainDataPath(), "chains", chainPath, "paritydb")
+}
+
+// RelayChainSnapshotPath returns the paritydb path for relay chain snapshots.
+// Matches node layout: base-path/chains/<chain_path>/paritydb/
+func RelayChainSnapshotPath(chainPath string) string {
+	return filepath.Join(RelayChainDataPath(), "chains", chainPath, "paritydb")
+}
+
 func KeystorePath() string       { return filepath.Join(DataDir(), "keystore") }
 func BootstrapStatePath() string { return filepath.Join(DataDir(), "bootstrap_state.json") }
 
@@ -58,14 +71,16 @@ type ChainConfig struct {
 	OverrideBootnodes []string `yaml:"override_bootnodes"`
 	ExtraArgs         []string `yaml:"extra_args"`
 	SnapshotURL       string   `yaml:"snapshot_url"`
+	SnapshotChainPath string   `yaml:"snapshot_chain_path"` // e.g. "avn_staging_dev_testnet"; required when snapshot_url is Polkadot-style
 }
 
 type RelayChainConfig struct {
-	ChainSpec   string   `yaml:"chain_spec"`
-	Port        int      `yaml:"port"`
-	Execution   string   `yaml:"execution"`
-	Bootnodes   []string `yaml:"bootnodes"`
-	SnapshotURL string   `yaml:"snapshot_url"`
+	ChainSpec      string   `yaml:"chain_spec"`
+	Port           int      `yaml:"port"`
+	Execution      string   `yaml:"execution"`
+	Bootnodes      []string `yaml:"bootnodes"`
+	SnapshotURL    string   `yaml:"snapshot_url"`
+	RelayChainPath string   `yaml:"relay_chain_path"` // e.g. "paseo" for Paseo; required when snapshot_url is set (rclone)
 }
 
 type PrometheusConfig struct {
@@ -153,6 +168,16 @@ func (c *Config) IsSolochain() bool {
 	return strings.ToLower(c.Node.Mode) == "solochain"
 }
 
+func isTarURL(url string) bool {
+	lower := strings.ToLower(url)
+	for _, ext := range []string{".tar.gz", ".tgz", ".tar.lz4", ".tar.zst", ".tar.zstd", ".tar.bz2", ".tar.xz", ".tar"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Config) Validate() error {
 	var errs []string
 
@@ -172,6 +197,10 @@ func (c *Config) Validate() error {
 		errs = append(errs, "chain.chain_spec is required")
 	}
 
+	if c.Chain.SnapshotURL != "" && !isTarURL(c.Chain.SnapshotURL) && c.Chain.SnapshotChainPath == "" {
+		errs = append(errs, "chain.snapshot_chain_path is required when chain.snapshot_url is a Polkadot-style URL (e.g. snapshots.polkadot.io)")
+	}
+
 	if c.Chain.Port <= 0 || c.Chain.Port > 65535 {
 		errs = append(errs, fmt.Sprintf("chain.port must be 1-65535, got %d", c.Chain.Port))
 	}
@@ -182,6 +211,9 @@ func (c *Config) Validate() error {
 		}
 		if c.RelayChain.Port <= 0 || c.RelayChain.Port > 65535 {
 			errs = append(errs, fmt.Sprintf("relay_chain.port must be 1-65535, got %d", c.RelayChain.Port))
+		}
+		if c.RelayChain.SnapshotURL != "" && !isTarURL(c.RelayChain.SnapshotURL) && c.RelayChain.RelayChainPath == "" {
+			errs = append(errs, "relay_chain.relay_chain_path is required when relay_chain.snapshot_url is a Polkadot-style URL (e.g. snapshots.polkadot.io)")
 		}
 	}
 
