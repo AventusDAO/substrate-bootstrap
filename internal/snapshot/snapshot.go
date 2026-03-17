@@ -114,10 +114,15 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 	return result, nil
 }
 
-const chainspecDownloadTimeout = 5 * time.Minute
+const (
+	chainspecDownloadTimeout = 5 * time.Minute
+	// maxChainspecSizeBytes prevents a misconfigured or malicious URL from filling the data volume.
+	maxChainspecSizeBytes = 100 * 1024 * 1024 // 100 MiB
+)
 
 // DownloadChainspec fetches a chainspec JSON from url and writes to destPath.
 // Skips if destPath exists and force is false.
+// Enforces maxChainspecSizeBytes to prevent unbounded disk usage.
 func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string, force bool) error {
 	if url == "" {
 		return nil
@@ -151,6 +156,12 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 		return fmt.Errorf("HTTP GET %s returned status %d", url, resp.StatusCode)
 	}
 
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		if contentLength, err := strconv.ParseInt(cl, 10, 64); err == nil && contentLength > maxChainspecSizeBytes {
+			return fmt.Errorf("chainspec too large: content-length %d exceeds limit %d", contentLength, maxChainspecSizeBytes)
+		}
+	}
+
 	dir := filepath.Dir(destPath)
 	tmpFile, err := os.CreateTemp(dir, ".chainspec-*.json.tmp")
 	if err != nil {
@@ -158,12 +169,19 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 	}
 	tmpPath := tmpFile.Name()
 	defer func() {
-		tmpFile.Close()
+		if tmpFile != nil {
+			tmpFile.Close()
+		}
 		os.Remove(tmpPath)
 	}()
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+	limitedReader := io.LimitReader(resp.Body, maxChainspecSizeBytes+1)
+	written, err := io.Copy(tmpFile, limitedReader)
+	if err != nil {
 		return fmt.Errorf("writing chainspec: %w", err)
+	}
+	if written > maxChainspecSizeBytes {
+		return fmt.Errorf("chainspec too large: wrote %d bytes, limit is %d", written, maxChainspecSizeBytes)
 	}
 	if err := tmpFile.Sync(); err != nil {
 		return fmt.Errorf("syncing chainspec: %w", err)
@@ -171,9 +189,21 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 	if err := tmpFile.Close(); err != nil {
 		return fmt.Errorf("closing temp file: %w", err)
 	}
+	tmpFile = nil
 
-	if err := os.Rename(tmpPath, destPath); err != nil {
-		return fmt.Errorf("renaming chainspec: %w", err)
+	if force {
+		if err := os.Rename(tmpPath, destPath); err != nil {
+			return fmt.Errorf("renaming chainspec: %w", err)
+		}
+	} else {
+		if err := os.Link(tmpPath, destPath); err != nil {
+			if os.IsExist(err) {
+				d.logger.Info("chainspec already exists, keeping existing file",
+					zap.String("path", destPath))
+				return nil
+			}
+			return fmt.Errorf("linking chainspec: %w", err)
+		}
 	}
 
 	d.logger.Info("chainspec downloaded successfully",

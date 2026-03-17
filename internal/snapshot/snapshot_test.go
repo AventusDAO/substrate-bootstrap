@@ -230,6 +230,39 @@ func TestDownloadChainspec_HTTPError(t *testing.T) {
 	assert.Contains(t, err.Error(), "status 404")
 }
 
+func TestDownloadChainspec_TooLarge_ContentLength(t *testing.T) {
+	d := testDownloader(t)
+	dest := filepath.Join(t.TempDir(), "chainspec.json")
+
+	oversized := 51 * 1024 * 1024 // 51 MiB
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.FormatInt(int64(oversized), 10))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "chainspec too large")
+	assert.Contains(t, err.Error(), "content-length")
+}
+
+func TestDownloadChainspec_TooLarge_Body(t *testing.T) {
+	d := testDownloader(t)
+	dest := filepath.Join(t.TempDir(), "chainspec.json")
+
+	oversized := make([]byte, 51*1024*1024) // 51 MiB
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(oversized)
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "chainspec too large")
+	assert.Contains(t, err.Error(), "wrote")
+}
+
 func TestResolveSnapshotURL_WithVersion_ReturnsUnchanged(t *testing.T) {
 	d := testDownloader(t)
 	url := "https://snapshots.polkadot.io/paseo-muse-paritydb-archive/20260316-011637"
