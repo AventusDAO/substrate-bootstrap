@@ -124,7 +124,6 @@ chain:
 relay_chain:
   chain_spec: /opt/relay.json
   port: 30333
-  execution: wasm
   bootnodes:
     - /dns/relay.parity.io/tcp/30333/p2p/12D3KooW
 

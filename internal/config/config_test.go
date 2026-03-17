@@ -42,7 +42,6 @@ chain:
 relay_chain:
   chain_spec: /opt/chainspecs/polkadot.json
   port: 31333
-  execution: native
   bootnodes:
     - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW
 
@@ -97,7 +96,6 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "archive-canonical", d.Chain.BlocksPruning)
 	assert.Equal(t, "256", d.Chain.StatePruning)
 	assert.Equal(t, 30333, d.RelayChain.Port)
-	assert.Equal(t, "wasm", d.RelayChain.Execution)
 	assert.True(t, d.Prometheus.Enabled)
 	assert.Equal(t, 9615, d.Prometheus.Port)
 	assert.True(t, d.Prometheus.External)
@@ -141,7 +139,6 @@ func TestLoad_MinimalRPC_UsesDefaults(t *testing.T) {
 	assert.Equal(t, "256", cfg.Chain.StatePruning, "should use default state_pruning")
 
 	assert.Equal(t, 30333, cfg.RelayChain.Port, "should use default relay port")
-	assert.Equal(t, "wasm", cfg.RelayChain.Execution, "should use default execution")
 
 	assert.True(t, cfg.Prometheus.Enabled, "should use default prometheus enabled")
 	assert.Equal(t, 9615, cfg.Prometheus.Port, "should use default prometheus port")
@@ -159,7 +156,6 @@ func TestLoad_FullRPC_OverridesDefaults(t *testing.T) {
 	assert.Equal(t, "1000", cfg.Chain.BlocksPruning, "should override blocks_pruning")
 	assert.Equal(t, "1000", cfg.Chain.StatePruning, "should override state_pruning")
 	assert.Equal(t, 31333, cfg.RelayChain.Port, "should override relay port")
-	assert.Equal(t, "native", cfg.RelayChain.Execution, "should override execution")
 	assert.False(t, cfg.Prometheus.Enabled, "should override prometheus enabled")
 	assert.Equal(t, "debug", cfg.Logging.Level, "should override log level")
 	assert.Equal(t, "console", cfg.Logging.Format, "should override log format")

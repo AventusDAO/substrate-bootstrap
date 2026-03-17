@@ -61,7 +61,6 @@ func runnerConfig(binary string) *config.Config {
 		RelayChain: config.RelayChainConfig{
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
-			Execution: "wasm",
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},
 		},
 	}

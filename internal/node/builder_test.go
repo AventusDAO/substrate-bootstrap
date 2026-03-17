@@ -25,7 +25,6 @@ func rpcConfig() *config.Config {
 		RelayChain: config.RelayChainConfig{
 			ChainSpec: "/opt/chainspecs/polkadot.json",
 			Port:      30333,
-			Execution: "wasm",
 			Bootnodes: []string{"/dns/relay-boot.parity.io/tcp/30333/p2p/12D3KooWR"},
 		},
 		Prometheus: config.PrometheusConfig{
