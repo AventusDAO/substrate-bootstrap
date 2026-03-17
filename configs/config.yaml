@@ -7,7 +7,9 @@
 #
 # Data volumes are fixed (not configurable):
 #   /data/chain-data        - chain data (--base-path target)
+#   /data/chain-data/chainspec.json - downloaded chainspec (when chain.chainspec_url is set)
 #   /data/relaychain-data   - relay chain snapshots (parachain mode only)
+#   /data/relaychain-data/chainspec.json - downloaded relay chainspec (when relay_chain.chainspec_url is set)
 #   /data/keystore          - keystore files (when enable_keystore: true)
 #   /data/bootstrap_state.json - bootstrap state tracking
 #
@@ -25,6 +27,8 @@ node:
 # In solochain mode, this is the main (and only) chain config.
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/chain-data/chainspec.json
+  # force_download_chainspec: false      # overwrite existing chainspec when downloading
   bootnodes:
     - /dns/parachain-boot-1.example.io/tcp/40333/p2p/12D3KooW...
     - /dns/parachain-boot-2.example.io/tcp/40333/p2p/12D3KooW...
@@ -41,6 +45,8 @@ chain:
 
 relay_chain:
   chain_spec: /opt/chainspecs/polkadot.json
+  # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/relaychain-data/chainspec.json
+  # force_download_chainspec: false      # overwrite existing chainspec when downloading
   bootnodes:
     - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
   # Uses rclone for Polkadot-style snapshots (files.txt manifest + parallel downloads).

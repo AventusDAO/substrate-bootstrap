@@ -149,6 +149,87 @@ func TestSyncIfNeeded_ContextCancelled(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestDownloadChainspec_EmptyURL(t *testing.T) {
+	d := testDownloader(t)
+	dest := filepath.Join(t.TempDir(), "chainspec.json")
+	err := d.DownloadChainspec(context.Background(), "", dest, false)
+	require.NoError(t, err)
+	_, err = os.Stat(dest)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestDownloadChainspec_ExistsAndNotForce_Skips(t *testing.T) {
+	d := testDownloader(t)
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "chainspec.json")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(dest, []byte(`{"existing": true}`), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"new": true}`))
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, false)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, `{"existing": true}`, string(data))
+}
+
+func TestDownloadChainspec_Downloads(t *testing.T) {
+	d := testDownloader(t)
+	dir := filepath.Join(t.TempDir(), "chain-data")
+	dest := filepath.Join(dir, "chainspec.json")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"name": "test-chain", "id": "test"}`))
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, false)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, `{"name": "test-chain", "id": "test"}`, string(data))
+}
+
+func TestDownloadChainspec_ForceOverwrites(t *testing.T) {
+	d := testDownloader(t)
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "chainspec.json")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(dest, []byte(`{"old": true}`), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"new": true}`))
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, true)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, `{"new": true}`, string(data))
+}
+
+func TestDownloadChainspec_HTTPError(t *testing.T) {
+	d := testDownloader(t)
+	dest := filepath.Join(t.TempDir(), "chainspec.json")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	err := d.DownloadChainspec(context.Background(), server.URL+"/chainspec.json", dest, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 404")
+}
+
 func TestResolveSnapshotURL_WithVersion_ReturnsUnchanged(t *testing.T) {
 	d := testDownloader(t)
 	url := "https://snapshots.polkadot.io/paseo-muse-paritydb-archive/20260316-011637"
