@@ -114,6 +114,21 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		relaySnap = result
 	}
 
+	if cfg.Chain.ChainspecURL != "" {
+		dest := config.ChainspecPath()
+		if err := snapDl.DownloadChainspec(ctx, cfg.Chain.ChainspecURL, dest, cfg.Chain.ForceDownloadChainspec); err != nil {
+			return fmt.Errorf("chain chainspec: %w", err)
+		}
+		cfg.Chain.ChainSpec = dest
+	}
+	if !cfg.IsSolochain() && cfg.RelayChain.ChainspecURL != "" {
+		dest := config.RelayChainspecPath()
+		if err := snapDl.DownloadChainspec(ctx, cfg.RelayChain.ChainspecURL, dest, cfg.RelayChain.ForceDownloadChainspec); err != nil {
+			return fmt.Errorf("relay chain chainspec: %w", err)
+		}
+		cfg.RelayChain.ChainSpec = dest
+	}
+
 	var keystoreMgr *keystore.Manager
 	if cfg.Node.EnableKeystore {
 		keystoreMgr = keystore.NewManager(config.KeystorePath(), cfg.Keystore.CleanupOnStop, logger)

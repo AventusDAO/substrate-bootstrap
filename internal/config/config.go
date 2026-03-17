@@ -26,6 +26,9 @@ func DataDir() string {
 func ChainDataPath() string      { return filepath.Join(DataDir(), "chain-data") }
 func RelayChainDataPath() string { return filepath.Join(DataDir(), "relaychain-data") }
 
+func ChainspecPath() string      { return filepath.Join(ChainDataPath(), "chainspec.json") }
+func RelayChainspecPath() string { return filepath.Join(RelayChainDataPath(), "chainspec.json") }
+
 // ChainSnapshotPath returns the paritydb path for chain (parachain/solochain) snapshots.
 // Matches node layout: base-path/chains/<chain_path>/paritydb/
 func ChainSnapshotPath(chainPath string) string {
@@ -63,24 +66,28 @@ type NodeConfig struct {
 // In parachain mode these are the parachain args (before the -- separator).
 // In solochain mode this is the main (and only) chain config.
 type ChainConfig struct {
-	ChainSpec         string   `yaml:"chain_spec"`
-	Port              int      `yaml:"port"`
-	BlocksPruning     string   `yaml:"blocks_pruning"`
-	StatePruning      string   `yaml:"state_pruning"`
-	Bootnodes         []string `yaml:"bootnodes"`
-	OverrideBootnodes []string `yaml:"override_bootnodes"`
-	ExtraArgs         []string `yaml:"extra_args"`
-	SnapshotURL       string   `yaml:"snapshot_url"`
-	SnapshotChainPath string   `yaml:"snapshot_chain_path"` // e.g. "avn_staging_dev_testnet"; required when snapshot_url is Polkadot-style
+	ChainSpec              string   `yaml:"chain_spec"`
+	ChainspecURL           string   `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to ChainspecPath()
+	ForceDownloadChainspec bool     `yaml:"force_download_chainspec"` // overwrite existing file
+	Port                   int      `yaml:"port"`
+	BlocksPruning          string   `yaml:"blocks_pruning"`
+	StatePruning           string   `yaml:"state_pruning"`
+	Bootnodes              []string `yaml:"bootnodes"`
+	OverrideBootnodes      []string `yaml:"override_bootnodes"`
+	ExtraArgs              []string `yaml:"extra_args"`
+	SnapshotURL            string   `yaml:"snapshot_url"`
+	SnapshotChainPath      string   `yaml:"snapshot_chain_path"` // e.g. "avn_staging_dev_testnet"; required when snapshot_url is Polkadot-style
 }
 
 type RelayChainConfig struct {
-	ChainSpec      string   `yaml:"chain_spec"`
-	Port           int      `yaml:"port"`
-	Execution      string   `yaml:"execution"`
-	Bootnodes      []string `yaml:"bootnodes"`
-	SnapshotURL    string   `yaml:"snapshot_url"`
-	RelayChainPath string   `yaml:"relay_chain_path"` // e.g. "paseo" for Paseo; required when snapshot_url is set (rclone)
+	ChainSpec              string   `yaml:"chain_spec"`
+	ChainspecURL           string   `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to RelayChainspecPath()
+	ForceDownloadChainspec bool     `yaml:"force_download_chainspec"` // overwrite existing file
+	Port                   int      `yaml:"port"`
+	Execution              string   `yaml:"execution"`
+	Bootnodes              []string `yaml:"bootnodes"`
+	SnapshotURL            string   `yaml:"snapshot_url"`
+	RelayChainPath         string   `yaml:"relay_chain_path"` // e.g. "paseo" for Paseo; required when snapshot_url is set (rclone)
 }
 
 type PrometheusConfig struct {
@@ -193,8 +200,8 @@ func (c *Config) Validate() error {
 		errs = append(errs, fmt.Sprintf("node.mode must be \"parachain\" or \"solochain\", got %q", c.Node.Mode))
 	}
 
-	if c.Chain.ChainSpec == "" {
-		errs = append(errs, "chain.chain_spec is required")
+	if c.Chain.ChainSpec == "" && c.Chain.ChainspecURL == "" {
+		errs = append(errs, "chain.chain_spec or chain.chainspec_url is required")
 	}
 
 	if c.Chain.SnapshotURL != "" && !isTarURL(c.Chain.SnapshotURL) && c.Chain.SnapshotChainPath == "" {
@@ -206,8 +213,8 @@ func (c *Config) Validate() error {
 	}
 
 	if mode != "solochain" {
-		if c.RelayChain.ChainSpec == "" {
-			errs = append(errs, "relay_chain.chain_spec is required")
+		if c.RelayChain.ChainSpec == "" && c.RelayChain.ChainspecURL == "" {
+			errs = append(errs, "relay_chain.chain_spec or relay_chain.chainspec_url is required")
 		}
 		if c.RelayChain.Port <= 0 || c.RelayChain.Port > 65535 {
 			errs = append(errs, fmt.Sprintf("relay_chain.port must be 1-65535, got %d", c.RelayChain.Port))

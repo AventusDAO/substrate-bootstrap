@@ -111,6 +111,8 @@ func TestFixedPaths(t *testing.T) {
 	assert.Equal(t, "/data", DataDir())
 	assert.Equal(t, "/data/chain-data", ChainDataPath())
 	assert.Equal(t, "/data/relaychain-data", RelayChainDataPath())
+	assert.Equal(t, "/data/chain-data/chainspec.json", ChainspecPath())
+	assert.Equal(t, "/data/relaychain-data/chainspec.json", RelayChainspecPath())
 	assert.Equal(t, "/data/chain-data/chains/avn_staging_dev_testnet/paritydb", ChainSnapshotPath("avn_staging_dev_testnet"))
 	assert.Equal(t, "/data/relaychain-data/chains/paseo/paritydb", RelayChainSnapshotPath("paseo"))
 	assert.Equal(t, "/data/keystore", KeystorePath())
@@ -121,6 +123,8 @@ func TestDataDir_EnvOverride(t *testing.T) {
 	t.Setenv("SUBSTRATE_BOOTSTRAP_DATA_DIR", "/tmp/test-data")
 	assert.Equal(t, "/tmp/test-data", DataDir())
 	assert.Equal(t, "/tmp/test-data/chain-data", ChainDataPath())
+	assert.Equal(t, "/tmp/test-data/chain-data/chainspec.json", ChainspecPath())
+	assert.Equal(t, "/tmp/test-data/relaychain-data/chainspec.json", RelayChainspecPath())
 	assert.Equal(t, "/tmp/test-data/bootstrap_state.json", BootstrapStatePath())
 }
 
@@ -368,7 +372,7 @@ relay_chain:
 `
 	_, err := Load(writeConfig(t, yaml))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "chain.chain_spec is required")
+	assert.Contains(t, err.Error(), "chain.chain_spec or chain.chainspec_url is required")
 }
 
 func TestLoad_MissingRelayChainSpec(t *testing.T) {
@@ -384,7 +388,41 @@ relay_chain:
 `
 	_, err := Load(writeConfig(t, yaml))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "relay_chain.chain_spec is required")
+	assert.Contains(t, err.Error(), "relay_chain.chain_spec or relay_chain.chainspec_url is required")
+}
+
+func TestLoad_ChainspecURLMakesChainSpecOptional(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chainspec_url: https://example.com/chainspec.json
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/chainspec.json", cfg.Chain.ChainspecURL)
+	assert.Empty(t, cfg.Chain.ChainSpec)
+}
+
+func TestLoad_ChainspecURLMakesRelayChainSpecOptional(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chainspec_url: https://example.com/relay-chainspec.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/relay-chainspec.json", cfg.RelayChain.ChainspecURL)
+	assert.Empty(t, cfg.RelayChain.ChainSpec)
 }
 
 func TestLoad_NoRelayBootnodes_UsesChainspec(t *testing.T) {
@@ -578,7 +616,7 @@ relay_chain:
 `
 	_, err := Load(writeConfig(t, yaml))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "relay_chain.chain_spec is required")
+	assert.Contains(t, err.Error(), "relay_chain.chain_spec or relay_chain.chainspec_url is required")
 }
 
 func TestLoad_InvalidMode(t *testing.T) {

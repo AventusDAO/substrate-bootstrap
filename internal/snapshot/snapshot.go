@@ -114,6 +114,113 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 	return result, nil
 }
 
+const (
+	chainspecDownloadTimeout = 5 * time.Minute
+	// maxChainspecSizeBytes prevents a misconfigured or malicious URL from filling the data volume.
+	maxChainspecSizeBytes = 100 * 1024 * 1024 // 100 MiB
+)
+
+// DownloadChainspec fetches a chainspec JSON from url and writes to destPath.
+// Skips if destPath exists and force is false.
+// Enforces maxChainspecSizeBytes to prevent unbounded disk usage.
+func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string, force bool) error {
+	if url == "" {
+		return nil
+	}
+
+	fi, err := os.Stat(destPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("stat chainspec destination %q: %w", destPath, err)
+	}
+	if err == nil {
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("chainspec destination %q is not a regular file", destPath)
+		}
+		if !force {
+			d.logger.Info("chainspec already exists, skipping download",
+				zap.String("path", destPath))
+			return nil
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return fmt.Errorf("creating chainspec directory: %w", err)
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, chainspecDownloadTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP GET %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP GET %s returned status %d", url, resp.StatusCode)
+	}
+
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		if contentLength, err := strconv.ParseInt(cl, 10, 64); err == nil && contentLength > maxChainspecSizeBytes {
+			return fmt.Errorf("chainspec too large: content-length %d exceeds limit %d", contentLength, maxChainspecSizeBytes)
+		}
+	}
+
+	dir := filepath.Dir(destPath)
+	tmpFile, err := os.CreateTemp(dir, ".chainspec-*.json.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer func() {
+		if tmpFile != nil {
+			tmpFile.Close()
+		}
+		os.Remove(tmpPath)
+	}()
+
+	limitedReader := io.LimitReader(resp.Body, maxChainspecSizeBytes+1)
+	written, err := io.Copy(tmpFile, limitedReader)
+	if err != nil {
+		return fmt.Errorf("writing chainspec: %w", err)
+	}
+	if written > maxChainspecSizeBytes {
+		return fmt.Errorf("chainspec too large: wrote %d bytes, limit is %d", written, maxChainspecSizeBytes)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		return fmt.Errorf("syncing chainspec: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+	tmpFile = nil
+
+	if force {
+		if err := os.Rename(tmpPath, destPath); err != nil {
+			return fmt.Errorf("renaming chainspec: %w", err)
+		}
+	} else {
+		if err := os.Link(tmpPath, destPath); err != nil {
+			if os.IsExist(err) {
+				d.logger.Info("chainspec already exists, keeping existing file",
+					zap.String("path", destPath))
+				return nil
+			}
+			return fmt.Errorf("linking chainspec: %w", err)
+		}
+	}
+
+	d.logger.Info("chainspec downloaded successfully",
+		zap.String("url", url),
+		zap.String("path", destPath))
+	return nil
+}
+
 // resolveSnapshotURL fetches latest_version.meta.txt when URL is a base URL (no version suffix).
 // Returns the URL unchanged if it already has a version or is a tar URL.
 func (d *Downloader) resolveSnapshotURL(ctx context.Context, snapshotURL string) (string, error) {

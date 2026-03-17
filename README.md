@@ -7,6 +7,7 @@ A Go CLI that bootstraps and manages Polkadot parachain and solochain nodes. A s
 - **Parachain & solochain support** — Run full nodes for relay chains, parachains, or standalone chains
 - **Configurable node types** — RPC via `chain.extra_args`; keystore via `node.enable_keystore` (listener/hybrid)
 - **Snapshot sync** — Download chain data via rclone (Polkadot-style) or tar archives
+- **Chainspec download** — Optional `chainspec_url` to fetch chain/relay chain specs; when set, config `chain_spec` is ignored and the node uses the downloaded file
 - **Idempotent bootstrap** — Shell commands run once; state tracked in JSON file
 - **Fixed data layout** — Predefined volume paths (no user overrides) matching Parity Helm chart patterns
 - **Signal forwarding** — Graceful shutdown propagates SIGINT/SIGTERM to the node process
@@ -46,12 +47,16 @@ Configuration is YAML-based with `${ENV_VAR}` expansion. See `configs/config.yam
 | Section      | Description                                                                 |
 | ------------ | --------------------------------------------------------------------------- |
 | `node`       | Binary path, name, `enable_keystore` (default false), mode (`parachain`/`solochain`) |
-| `chain`      | Chain spec, port, pruning, bootnodes, snapshot URL, `extra_args` (RPC flags, etc.) |
+| `chain`      | Chain spec (or `chainspec_url` to download), port, pruning, bootnodes, snapshot URL, `extra_args` (RPC flags, etc.) |
 | `relay_chain`| Relay chain config (parachain mode only)                                    |
 | `keystore`   | `cleanup_on_stop` (when `enable_keystore: true`)                            |
 | `bootstrap`  | Commands to run before node start, required env vars                        |
 
 **Bootstrap commands** require an sh-compatible shell (`/bin/sh` or BusyBox) in the runtime. Distroless or static containers typically do not include one — use an image with a shell (e.g. Alpine, Debian slim) if you use `bootstrap.commands`.
+
+### Chainspec download
+
+Set `chainspec_url` (and optionally `force_download_chainspec`) under `chain` or `relay_chain` to download the chainspec from a URL before the node starts. When set, the config's `chain_spec` path is ignored and the node uses the downloaded file at `/data/chain-data/chainspec.json` or `/data/relaychain-data/chainspec.json`. Bootstrap commands that need the chainspec path (e.g. `key insert --chain`) can reference these fixed paths.
 
 ### Node types
 
@@ -63,12 +68,14 @@ Configuration is YAML-based with `${ENV_VAR}` expansion. See `configs/config.yam
 
 All data paths are hardcoded — **not configurable** in YAML. Mount volumes at these paths:
 
-| Path                     | Purpose                                      |
-| ------------------------ | -------------------------------------------- |
-| `/data/chain-data`       | Chain data (`--base-path` target)            |
-| `/data/relaychain-data`  | Relay chain snapshots (parachain mode only)       |
-| `/data/keystore`         | Keystore files (when `enable_keystore: true`)         |
-| `/data/bootstrap_state.json` | Bootstrap state tracking                 |
+| Path                           | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `/data/chain-data`             | Chain data (`--base-path` target)                      |
+| `/data/chain-data/chainspec.json` | Downloaded chainspec (when `chain.chainspec_url` is set) |
+| `/data/relaychain-data`        | Relay chain snapshots (parachain mode only)            |
+| `/data/relaychain-data/chainspec.json` | Downloaded relay chainspec (when `relay_chain.chainspec_url` is set) |
+| `/data/keystore`               | Keystore files (when `enable_keystore: true`)          |
+| `/data/bootstrap_state.json`   | Bootstrap state tracking                               |
 
 ## Usage
 
@@ -114,11 +121,6 @@ make coverage  # Enforce 80% coverage
 make integration  # Integration tests
 make build     # Cross-compile binaries
 ```
-
-## Releases
-
-Releases are automated with [Release Please](https://github.com/googleapis/release-please). Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.) so Release Please can generate changelogs and version bumps. When a release PR is merged to `main`, a GitHub release is created with pre-built binaries for Linux (amd64, arm64) and macOS (arm64).
-
 ## Project structure
 
 ```
