@@ -50,6 +50,19 @@ func TestFetch_InvalidIP(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid IP")
 }
 
+func TestFetch_IPv6Rejected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("2001:db8::1"))
+	}))
+	defer server.Close()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	_, err := FetchFrom(context.Background(), client, server.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "non-IPv4")
+}
+
 func TestFetch_NonOKStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)

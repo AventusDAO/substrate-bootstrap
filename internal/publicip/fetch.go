@@ -39,7 +39,14 @@ func FetchFrom(ctx context.Context, client *http.Client, url string) (string, er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", &fetchError{msg: "unexpected HTTP status"}
+		errBody := make([]byte, 256)
+		n, _ := resp.Body.Read(errBody)
+		snippet := strings.TrimSpace(string(errBody[:n]))
+		msg := "unexpected HTTP status: " + resp.Status
+		if snippet != "" {
+			msg += " body: " + snippet
+		}
+		return "", &fetchError{msg: msg}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
@@ -55,6 +62,9 @@ func FetchFrom(ctx context.Context, client *http.Client, url string) (string, er
 	parsed := net.ParseIP(ip)
 	if parsed == nil {
 		return "", &fetchError{msg: "invalid IP: " + ip}
+	}
+	if parsed.To4() == nil {
+		return "", &fetchError{msg: "non-IPv4 address: " + ip}
 	}
 
 	return ip, nil
