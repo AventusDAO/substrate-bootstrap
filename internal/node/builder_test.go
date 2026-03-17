@@ -160,6 +160,17 @@ func TestBuildArgs_OverrideBootnodes(t *testing.T) {
 	assert.NotContains(t, chainArgs, "/dns/boot1.example.io/tcp/40333/p2p/12D3KooW1")
 }
 
+func TestBuildArgs_NoBootnodes_UsesChainspec(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Chain.Bootnodes = nil
+	cfg.Chain.OverrideBootnodes = nil
+	cfg.RelayChain.Bootnodes = nil
+
+	args := BuildArgs(cfg)
+
+	assert.NotContains(t, args, "--bootnodes")
+}
+
 func TestBuildArgs_PrometheusDisabled(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Prometheus.Enabled = false

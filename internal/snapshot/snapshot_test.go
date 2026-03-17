@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -148,6 +149,52 @@ func TestSyncIfNeeded_ContextCancelled(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestResolveSnapshotURL_WithVersion_ReturnsUnchanged(t *testing.T) {
+	d := testDownloader(t)
+	url := "https://snapshots.polkadot.io/paseo-muse-paritydb-archive/20260316-011637"
+	resolved, err := d.resolveSnapshotURL(context.Background(), url)
+	require.NoError(t, err)
+	assert.Equal(t, url, resolved)
+}
+
+func TestResolveSnapshotURL_BaseURL_FetchesLatest(t *testing.T) {
+	d := testDownloader(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/paseo-muse-paritydb-archive/latest_version.meta.txt" {
+			_, _ = w.Write([]byte("20260316-011637\n"))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	baseURL := server.URL + "/paseo-muse-paritydb-archive"
+	resolved, err := d.resolveSnapshotURL(context.Background(), baseURL)
+	require.NoError(t, err)
+	assert.Equal(t, baseURL+"/20260316-011637", resolved)
+}
+
+func TestResolveSnapshotURL_TarURL_ReturnsUnchanged(t *testing.T) {
+	d := testDownloader(t)
+	url := "https://example.com/snapshot.tar.gz"
+	resolved, err := d.resolveSnapshotURL(context.Background(), url)
+	require.NoError(t, err)
+	assert.Equal(t, url, resolved)
+}
+
+func TestResolveSnapshotURL_EmptyMeta_FallsBackToBase(t *testing.T) {
+	d := testDownloader(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(""))
+	}))
+	defer server.Close()
+
+	baseURL := server.URL + "/snapshots"
+	resolved, err := d.resolveSnapshotURL(context.Background(), baseURL)
+	require.NoError(t, err)
+	assert.Equal(t, baseURL, resolved)
+}
+
 func TestIsTarURL(t *testing.T) {
 	tarURLs := []string{
 		"https://example.io/snap.tar.gz",
@@ -256,4 +303,12 @@ func TestHumanSize(t *testing.T) {
 	assert.Equal(t, "500 bytes", humanSize(500))
 	assert.Equal(t, "1.5 MB", humanSize(1572864))
 	assert.Equal(t, "2.0 GB", humanSize(2147483648))
+}
+
+func TestParallelTransfers(t *testing.T) {
+	s := parallelTransfers()
+	n, err := strconv.Atoi(s)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, n, 1)
+	assert.LessOrEqual(t, n, 50)
 }

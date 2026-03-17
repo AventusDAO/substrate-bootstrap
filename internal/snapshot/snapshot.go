@@ -11,6 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +22,20 @@ import (
 	"github.com/ulikunitz/xz"
 	"go.uber.org/zap"
 )
+
+// versionInURL matches Polkadot snapshot version suffix (e.g. 20260316-011637).
+var versionInURL = regexp.MustCompile(`/\d{8}-\d{6}$`)
+
+func parallelTransfers() string {
+	n := runtime.NumCPU() * 5
+	if n > 50 {
+		n = 50
+	}
+	if n < 1 {
+		n = 1
+	}
+	return strconv.Itoa(n)
+}
 
 type Downloader struct {
 	logger     *zap.Logger
@@ -48,12 +65,19 @@ type SyncResult struct {
 // Auto-detects the download method based on the URL:
 //   - URLs ending with a tar extension (.tar.gz, .tar.lz4, etc.) use streaming tar extraction.
 //   - All other URLs (e.g. Polkadot snapshots.polkadot.io) use rclone with a files.txt manifest.
+//
+// For Polkadot-style base URLs (no version suffix), fetches latest_version.meta.txt to resolve latest snapshot.
 func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath string) (*SyncResult, error) {
 	if snapshotURL == "" {
 		return nil, nil
 	}
 
-	result := &SyncResult{URL: snapshotURL, DataPath: dataPath}
+	resolvedURL, err := d.resolveSnapshotURL(ctx, snapshotURL)
+	if err != nil {
+		return nil, fmt.Errorf("resolving snapshot URL: %w", err)
+	}
+
+	result := &SyncResult{URL: resolvedURL, DataPath: dataPath}
 
 	hasData, err := dirHasData(dataPath)
 	if err != nil {
@@ -74,12 +98,12 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 		return nil, fmt.Errorf("creating data directory %s: %w", dataPath, err)
 	}
 
-	if isTarURL(snapshotURL) {
+	if isTarURL(resolvedURL) {
 		result.Method = "tar"
-		err = d.downloadAndExtractTar(ctx, snapshotURL, dataPath)
+		err = d.downloadAndExtractTar(ctx, resolvedURL, dataPath)
 	} else {
 		result.Method = "rclone"
-		err = d.downloadWithRclone(ctx, snapshotURL, dataPath)
+		err = d.downloadWithRclone(ctx, resolvedURL, dataPath)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("downloading snapshot: %w", err)
@@ -88,6 +112,43 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 	result.Downloaded = true
 	d.logger.Info("snapshot downloaded successfully", zap.String("path", dataPath))
 	return result, nil
+}
+
+// resolveSnapshotURL fetches latest_version.meta.txt when URL is a base URL (no version suffix).
+// Returns the URL unchanged if it already has a version or is a tar URL.
+func (d *Downloader) resolveSnapshotURL(ctx context.Context, snapshotURL string) (string, error) {
+	snapshotURL = strings.TrimRight(snapshotURL, "/")
+	if isTarURL(snapshotURL) || versionInURL.MatchString(snapshotURL) {
+		return snapshotURL, nil
+	}
+
+	metaURL := snapshotURL + "/latest_version.meta.txt"
+	d.logger.Info("resolving latest snapshot version", zap.String("url", metaURL))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, metaURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating request for %s: %w", metaURL, err)
+	}
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetching %s: %w", metaURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%s returned status %d", metaURL, resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", metaURL, err)
+	}
+	version := strings.TrimSpace(string(body))
+	if version == "" {
+		d.logger.Warn("latest_version.meta.txt is empty, using base URL as-is", zap.String("url", snapshotURL))
+		return snapshotURL, nil
+	}
+	resolved := snapshotURL + "/" + version
+	d.logger.Info("resolved snapshot URL", zap.String("version", version), zap.String("url", resolved))
+	return resolved, nil
 }
 
 // downloadWithRclone uses rclone to sync a Polkadot-style snapshot.
@@ -111,18 +172,20 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 	}
 	defer os.Remove(filesListPath)
 
+	transfers := parallelTransfers()
 	d.logger.Info("starting rclone copy with parallel transfers",
-		zap.String("dest", destPath))
+		zap.String("dest", destPath),
+		zap.String("transfers", transfers))
 
 	start := time.Now()
 	rcloneCmd := exec.CommandContext(ctx, "rclone", "copy",
 		"--progress",
-		"--transfers", "20",
+		"--transfers", transfers,
+		"--error-on-no-transfer",
 		"--http-url", snapshotURL,
 		"--no-traverse",
 		"--http-no-head",
 		"--disable-http2",
-		"--inplace",
 		"--no-gzip-encoding",
 		"--size-only",
 		"--retries", "6",

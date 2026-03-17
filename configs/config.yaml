@@ -10,6 +10,10 @@
 #   /data/relaychain-data   - relay chain snapshots (parachain mode only)
 #   /data/keystore          - keystore files (when enable_keystore: true)
 #   /data/bootstrap_state.json - bootstrap state tracking
+#
+# logging:
+#   level: info             # debug, info, warn, error
+#   format: json            # json (default), console, or node (substrate-node style)
 
 node:
   name: "${HOSTNAME}"
@@ -27,6 +31,7 @@ chain:
   # blocks_pruning: archive-canonical     # default; use "archive" to keep all blocks
   # state_pruning: "256"                  # default; use "archive" to keep all state
   # snapshot_url: ""                      # rclone URL (polkadot-style) or tar archive URL
+  # snapshot_chain_path: ""               # required for Polkadot-style snapshot_url (e.g. avn_staging_dev_testnet)
   # extra_args:                           # RPC args, offchain-worker, db-cache, etc.
   #   - "--rpc-port=9944"
   #   - "--rpc-external"
@@ -40,7 +45,10 @@ relay_chain:
     - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
   # Uses rclone for Polkadot-style snapshots (files.txt manifest + parallel downloads).
   # For tar archives, just use a URL ending in .tar.gz, .tar.lz4, etc.
-  # snapshot_url: https://snapshots.polkadot.io/polkadot-paritydb-prune/20260304-062636
+  # For Polkadot-style URLs, relay_chain_path is required (matches chain id in chainspec, e.g. paseo).
+  # Base URL (no version) auto-resolves latest via latest_version.meta.txt.
+  # snapshot_url: https://snapshots.polkadot.io/polkadot-paritydb-prune
+  # relay_chain_path: polkadot
 
 telemetry:
   urls:

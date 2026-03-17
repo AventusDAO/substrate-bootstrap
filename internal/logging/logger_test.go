@@ -39,31 +39,37 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestNewLogger_JSON(t *testing.T) {
-	logger, err := NewLogger(Config{Level: "info", Format: "json"}, "rpc", "test-node")
+	logger, err := NewLogger(Config{Level: "info", Format: "json"}, "test-node")
 	require.NoError(t, err)
 	assert.NotNil(t, logger)
 }
 
 func TestNewLogger_Console(t *testing.T) {
-	logger, err := NewLogger(Config{Level: "debug", Format: "console"}, "listener", "my-node")
+	logger, err := NewLogger(Config{Level: "debug", Format: "console"}, "my-node")
+	require.NoError(t, err)
+	assert.NotNil(t, logger)
+}
+
+func TestNewLogger_Node(t *testing.T) {
+	logger, err := NewLogger(Config{Level: "info", Format: "node"}, "my-node")
 	require.NoError(t, err)
 	assert.NotNil(t, logger)
 }
 
 func TestNewLogger_DefaultFormat(t *testing.T) {
-	logger, err := NewLogger(Config{Level: "warn", Format: ""}, "rpc", "node-1")
+	logger, err := NewLogger(Config{Level: "warn", Format: ""}, "node-1")
 	require.NoError(t, err)
 	assert.NotNil(t, logger)
 }
 
 func TestNewLogger_InvalidFormat(t *testing.T) {
-	_, err := NewLogger(Config{Level: "info", Format: "xml"}, "rpc", "node")
+	_, err := NewLogger(Config{Level: "info", Format: "xml"}, "node")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported log format")
 }
 
 func TestNewLogger_InvalidLevel(t *testing.T) {
-	_, err := NewLogger(Config{Level: "garbage"}, "rpc", "node")
+	_, err := NewLogger(Config{Level: "garbage"}, "node")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported log level")
 }
