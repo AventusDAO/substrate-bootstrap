@@ -36,7 +36,7 @@ func buildChainArgs(cfg *config.Config, publicIP string) []string {
 	args = append(args, fmt.Sprintf("--listen-addr=/ip4/0.0.0.0/tcp/%d", cfg.Chain.Port))
 
 	if publicIP != "" {
-		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", publicIP, cfg.Chain.Port))
+		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d", publicIP, cfg.Chain.Port))
 	}
 
 	args = append(args, prometheusArgs(cfg.Prometheus)...)

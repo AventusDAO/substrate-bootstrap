@@ -258,7 +258,7 @@ func TestBuildArgs_PublicAddr_ChainNonDefaultPort(t *testing.T) {
 
 	separatorIdx := indexOf(args, "--")
 	chainArgs := args[:separatorIdx]
-	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/41333/ws")
+	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/41333")
 }
 
 func TestBuildArgs_PublicAddr_ChainDefaultPort(t *testing.T) {
@@ -268,7 +268,7 @@ func TestBuildArgs_PublicAddr_ChainDefaultPort(t *testing.T) {
 
 	separatorIdx := indexOf(args, "--")
 	chainArgs := args[:separatorIdx]
-	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/40333/ws")
+	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/40333")
 }
 
 func TestBuildArgs_NoPublicAddr_WhenEmpty(t *testing.T) {

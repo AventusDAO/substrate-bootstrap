@@ -146,7 +146,7 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
 
-	publicIP := resolvePublicIP(ctx, logger)
+	publicIP := resolvePublicIP(ctx, logger, cfg)
 	runner := node.NewRunner(cfg, logger, publicIP)
 	err := runner.Run(ctx)
 
@@ -159,11 +159,18 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	return err
 }
 
-func resolvePublicIP(ctx context.Context, logger *zap.Logger) string {
+func resolvePublicIP(ctx context.Context, logger *zap.Logger, cfg *config.Config) string {
+	if v := os.Getenv("SUBSTRATE_BOOTSTRAP_DISABLE_PUBLIC_IP"); strings.EqualFold(v, "1") || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes") {
+		logger.Info("Public IP lookup disabled via SUBSTRATE_BOOTSTRAP_DISABLE_PUBLIC_IP")
+		return ""
+	}
+	if cfg.Chain.Port == 40333 {
+		return ""
+	}
 	client := &http.Client{Timeout: 5 * time.Second}
 	ip, err := publicip.Fetch(ctx, client)
 	if err != nil {
-		logger.Error("Failed to get public IP", zap.Error(err))
+		logger.Warn("Failed to get public IP (continuing without --public-addr)", zap.Error(err))
 		return ""
 	}
 	logger.Info("Detected public IP", zap.String("public_ip", ip))

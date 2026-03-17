@@ -126,7 +126,7 @@ Set `chainspec_url` under `chain` or `relay_chain` to download the chainspec bef
 
 ## Public Address
 
-The public IP is auto-detected from ifconfig.io at startup. When successful, `--public-addr=/ip4/{ip}/tcp/{port}/ws` is added for the chain (parachain/solochain), allowing peers to discover the node. The relay chain uses only `--port`.
+When `chain.port` is non-default (not 40333), the public IP is auto-detected from ifconfig.io at startup. When successful, `--public-addr=/ip4/{ip}/tcp/{port}` is added for the chain (parachain/solochain), allowing peers to discover the node. The relay chain uses only `--port`. Set `SUBSTRATE_BOOTSTRAP_DISABLE_PUBLIC_IP=1` to skip the lookup (e.g. in environments without outbound internet).
 
 ## Environment Variables
 
@@ -134,7 +134,7 @@ Use `${VAR_NAME}` in the config; values are expanded at load time. Example: `nam
 
 ## Example Configs
 
-- `configs/config.yaml` — Full reference with comments
+- `configs/config.yaml` — Sample config with comments
 - `examples/parachain-rpc.yaml` — Parachain RPC node
 - `examples/parachain-listener.yaml` — Parachain listener with keystore
 - `examples/parachain-hybrid.yaml` — Parachain hybrid (RPC + keystore)
