@@ -234,7 +234,8 @@ func TestDownloadChainspec_TooLarge_ContentLength(t *testing.T) {
 	d := testDownloader(t)
 	dest := filepath.Join(t.TempDir(), "chainspec.json")
 
-	oversized := 51 * 1024 * 1024 // 51 MiB
+	// Exceed maxChainspecSizeBytes
+	oversized := maxChainspecSizeBytes + 1
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.FormatInt(int64(oversized), 10))
 		w.WriteHeader(http.StatusOK)
@@ -251,7 +252,8 @@ func TestDownloadChainspec_TooLarge_Body(t *testing.T) {
 	d := testDownloader(t)
 	dest := filepath.Join(t.TempDir(), "chainspec.json")
 
-	oversized := make([]byte, 51*1024*1024) // 51 MiB
+	// Exceed maxChainspecSizeBytes
+	oversized := make([]byte, maxChainspecSizeBytes+1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(oversized)
 	}))
