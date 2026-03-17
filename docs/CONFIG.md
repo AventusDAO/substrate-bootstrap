@@ -126,7 +126,7 @@ Set `chainspec_url` under `chain` or `relay_chain` to download the chainspec bef
 
 ## Public Address
 
-When `chain.port` or `relay_chain.port` is non-default (overwritten), the public IP is auto-detected from ifconfig.io and `--public-addr=/ip4/{ip}/tcp/{port}/ws` is added for the corresponding chain(s). This allows peers to discover the node when using custom ports.
+The public IP is auto-detected from ifconfig.io at startup. When successful, `--public-addr=/ip4/{ip}/tcp/{port}/ws` is added for the chain (parachain/solochain), allowing peers to discover the node. The relay chain uses only `--port`.
 
 ## Environment Variables
 

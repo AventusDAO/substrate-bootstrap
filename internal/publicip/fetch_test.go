@@ -19,29 +19,7 @@ func TestFetch_Success(t *testing.T) {
 	defer server.Close()
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	// Override URL for test - we need to make Fetch use the test server.
-	// Fetch uses a constant URL, so we need to either make it configurable or
-	// use a different approach. Let me check the fetch.go - it uses fetchURL constant.
-	// We need to make the URL injectable for testing. Let me add an optional base URL parameter.
-
-	// Actually, the plan says "Tests can use a mock HTTP server." - the standard approach
-	// is to inject the URL or use httptest with a custom transport that redirects.
-	// Simpler: add a FetchFrom(client, url) or make Fetch accept an optional URL.
-	// Or we could use the env var to override the URL in tests.
-
-	// Simplest: add a second function FetchFrom(ctx, client, url) that takes URL, and
-	// Fetch() calls FetchFrom with the default URL. Then tests use FetchFrom with server.URL.
-
-	// Let me update fetch.go to support a configurable URL. I'll add:
-	// FetchFrom(ctx, client, url) (string, error)
-	// And Fetch(ctx, client) calls FetchFrom(ctx, client, fetchURL)
-
-	// Actually, looking at the plan again - it just says "Tests can use a mock HTTP server."
-	// The simplest way without changing the API is to use a custom Transport that
-	// intercepts requests to ifconfig.io and returns our mock. But that's complex.
-
-	// Simpler: add a FetchFrom(ctx, client, url) that the production Fetch calls.
-	// The plan didn't specify the exact API. Let me add FetchFrom for testability.
+	// FetchFrom is exposed so tests can call the IP-fetcher against a mock HTTP server.
 	ip, err := FetchFrom(context.Background(), client, server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "203.0.113.42", ip)

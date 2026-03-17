@@ -6,16 +6,12 @@ import (
 	"github.com/nicce/substrate-bootstrap/internal/config"
 )
 
-const (
-	defaultChainPort = 40333
-	defaultRelayPort = 30333
-)
-
 // BuildArgs constructs the full CLI arguments for the node binary.
 // Chain args are identical for solochain and parachain modes.
 // In parachain mode, relay chain args are appended after the "--" separator.
-func BuildArgs(cfg *config.Config) []string {
-	args := buildChainArgs(cfg)
+// publicIP, when non-empty, is used for --public-addr (always added when available).
+func BuildArgs(cfg *config.Config, publicIP string) []string {
+	args := buildChainArgs(cfg, publicIP)
 
 	if !cfg.IsSolochain() {
 		args = append(args, "--")
@@ -25,7 +21,7 @@ func BuildArgs(cfg *config.Config) []string {
 	return args
 }
 
-func buildChainArgs(cfg *config.Config) []string {
+func buildChainArgs(cfg *config.Config, publicIP string) []string {
 	var args []string
 
 	args = append(args,
@@ -39,9 +35,8 @@ func buildChainArgs(cfg *config.Config) []string {
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
 	args = append(args, fmt.Sprintf("--listen-addr=/ip4/0.0.0.0/tcp/%d", cfg.Chain.Port))
 
-	// Add --public-addr when port is overwritten (non-default); public IP is auto-detected
-	if cfg.Node.PublicIP != "" && cfg.Chain.Port != defaultChainPort {
-		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", cfg.Node.PublicIP, cfg.Chain.Port))
+	if publicIP != "" {
+		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", publicIP, cfg.Chain.Port))
 	}
 
 	args = append(args, prometheusArgs(cfg.Prometheus)...)
@@ -69,10 +64,6 @@ func buildRelayChainArgs(cfg *config.Config) []string {
 		fmt.Sprintf("--chain=%s", cfg.RelayChain.ChainSpec),
 		"--port", fmt.Sprintf("%d", cfg.RelayChain.Port),
 	)
-
-	if cfg.Node.PublicIP != "" && cfg.RelayChain.Port != defaultRelayPort {
-		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", cfg.Node.PublicIP, cfg.RelayChain.Port))
-	}
 
 	for _, bn := range cfg.RelayChain.Bootnodes {
 		args = append(args, "--bootnodes", bn)

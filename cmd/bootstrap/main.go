@@ -146,9 +146,8 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
 
-	resolvePublicIP(ctx, cfg, logger)
-
-	runner := node.NewRunner(cfg, logger)
+	publicIP := resolvePublicIP(ctx, logger)
+	runner := node.NewRunner(cfg, logger, publicIP)
 	err := runner.Run(ctx)
 
 	if keystoreMgr != nil {
@@ -160,27 +159,15 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	return err
 }
 
-const (
-	defaultChainPort = 40333
-	defaultRelayPort = 30333
-)
-
-func resolvePublicIP(ctx context.Context, cfg *config.Config, logger *zap.Logger) {
-	chainPortNonDefault := cfg.Chain.Port != defaultChainPort
-	relayPortNonDefault := !cfg.IsSolochain() && cfg.RelayChain.Port != defaultRelayPort
-	if !chainPortNonDefault && !relayPortNonDefault {
-		return
-	}
-
-	logger.Debug("Port overwritten, fetching public IP for --public-addr")
+func resolvePublicIP(ctx context.Context, logger *zap.Logger) string {
 	client := &http.Client{Timeout: 5 * time.Second}
 	ip, err := publicip.Fetch(ctx, client)
 	if err != nil {
 		logger.Error("Failed to get public IP", zap.Error(err))
-		return
+		return ""
 	}
-	cfg.Node.PublicIP = ip
 	logger.Info("Detected public IP", zap.String("public_ip", ip))
+	return ip
 }
 
 func logBootnodeWarnings(cfg *config.Config, logger *zap.Logger) {

@@ -56,7 +56,7 @@ func asSolochain(cfg *config.Config) *config.Config {
 
 func TestBuildArgs_RPCRole(t *testing.T) {
 	cfg := rpcConfig()
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	expected := []string{
 		"--name", "rpc-node-1",
@@ -88,7 +88,7 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 
 func TestBuildArgs_ListenerRole(t *testing.T) {
 	cfg := listenerConfig()
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	expected := []string{
 		"--name", "listener-node-1",
@@ -119,7 +119,7 @@ func TestBuildArgs_ListenerRole(t *testing.T) {
 func TestBuildArgs_NoTelemetry(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Telemetry.URLs = nil
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--no-telemetry")
 	assert.NotContains(t, args, "--telemetry-url")
@@ -135,7 +135,7 @@ func TestBuildArgs_MultipleTelemetryURLs(t *testing.T) {
 		"wss://telemetry1.io/submit 0",
 		"wss://telemetry2.io/submit 1",
 	}
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	count := 0
 	for _, a := range args {
@@ -150,7 +150,7 @@ func TestBuildArgs_OverrideBootnodes(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Chain.OverrideBootnodes = []string{"/dns/override/tcp/40333/p2p/OVERRIDE"}
 
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 	separatorIdx := indexOf(args, "--")
 	chainArgs := args[:separatorIdx]
 
@@ -164,7 +164,7 @@ func TestBuildArgs_NoBootnodes_UsesChainspec(t *testing.T) {
 	cfg.Chain.OverrideBootnodes = nil
 	cfg.RelayChain.Bootnodes = nil
 
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.NotContains(t, args, "--bootnodes")
 }
@@ -172,7 +172,7 @@ func TestBuildArgs_NoBootnodes_UsesChainspec(t *testing.T) {
 func TestBuildArgs_PrometheusDisabled(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Prometheus.Enabled = false
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--no-prometheus")
 	assert.NotContains(t, args, "--prometheus-port")
@@ -183,7 +183,7 @@ func TestBuildArgs_NoPruning(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Chain.BlocksPruning = ""
 	cfg.Chain.StatePruning = ""
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.NotContains(t, args, "--blocks-pruning")
 	assert.NotContains(t, args, "--state-pruning")
@@ -192,7 +192,7 @@ func TestBuildArgs_NoPruning(t *testing.T) {
 func TestBuildArgs_ExtraArgs(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Chain.ExtraArgs = []string{"--wasm-execution=compiled", "--max-runtime-instances=8"}
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--wasm-execution=compiled")
 	assert.Contains(t, args, "--max-runtime-instances=8")
@@ -202,7 +202,7 @@ func TestBuildArgs_ExtraArgs(t *testing.T) {
 
 func TestBuildArgs_SolochainRPC(t *testing.T) {
 	cfg := asSolochain(rpcConfig())
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.NotContains(t, args, "--")
 	assert.Contains(t, args, "--name")
@@ -214,7 +214,7 @@ func TestBuildArgs_SolochainRPC(t *testing.T) {
 
 func TestBuildArgs_SolochainListener(t *testing.T) {
 	cfg := asSolochain(listenerConfig())
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--keystore-path")
 	assert.Contains(t, args, "--offchain-worker=always")
@@ -227,7 +227,7 @@ func TestBuildArgs_SolochainListener(t *testing.T) {
 func TestBuildArgs_SolochainNoPrometheus(t *testing.T) {
 	cfg := asSolochain(rpcConfig())
 	cfg.Prometheus.Enabled = false
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--no-prometheus")
 	assert.NotContains(t, args, "--prometheus-port")
@@ -236,7 +236,7 @@ func TestBuildArgs_SolochainNoPrometheus(t *testing.T) {
 func TestBuildArgs_SolochainNoTelemetry(t *testing.T) {
 	cfg := asSolochain(rpcConfig())
 	cfg.Telemetry.URLs = nil
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--no-telemetry")
 	assert.NotContains(t, args, "--telemetry-url")
@@ -245,7 +245,7 @@ func TestBuildArgs_SolochainNoTelemetry(t *testing.T) {
 func TestBuildArgs_SolochainExtraArgs(t *testing.T) {
 	cfg := asSolochain(rpcConfig())
 	cfg.Chain.ExtraArgs = []string{"--registered-node-id=5Grwva"}
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.Contains(t, args, "--registered-node-id=5Grwva")
 }
@@ -254,9 +254,8 @@ func TestBuildArgs_SolochainExtraArgs(t *testing.T) {
 
 func TestBuildArgs_PublicAddr_ChainNonDefaultPort(t *testing.T) {
 	cfg := rpcConfig()
-	cfg.Node.PublicIP = "1.2.3.4"
 	cfg.Chain.Port = 41333
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "1.2.3.4")
 
 	separatorIdx := indexOf(args, "--")
 	chainArgs := args[:separatorIdx]
@@ -265,29 +264,19 @@ func TestBuildArgs_PublicAddr_ChainNonDefaultPort(t *testing.T) {
 
 func TestBuildArgs_PublicAddr_ChainDefaultPort(t *testing.T) {
 	cfg := rpcConfig()
-	cfg.Node.PublicIP = "1.2.3.4"
 	cfg.Chain.Port = 40333
-	args := BuildArgs(cfg)
-
-	assert.NotContains(t, args, "--public-addr")
-}
-
-func TestBuildArgs_PublicAddr_RelayNonDefaultPort(t *testing.T) {
-	cfg := rpcConfig()
-	cfg.Node.PublicIP = "1.2.3.4"
-	cfg.RelayChain.Port = 31333
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "1.2.3.4")
 
 	separatorIdx := indexOf(args, "--")
-	relayArgs := args[separatorIdx+1:]
-	assert.Contains(t, relayArgs, "--public-addr=/ip4/1.2.3.4/tcp/31333/ws")
+	chainArgs := args[:separatorIdx]
+	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/40333/ws")
 }
 
 func TestBuildArgs_NoPublicAddr_WhenEmpty(t *testing.T) {
 	cfg := rpcConfig()
 	cfg.Chain.Port = 41333
 	cfg.RelayChain.Port = 31333
-	args := BuildArgs(cfg)
+	args := BuildArgs(cfg, "")
 
 	assert.NotContains(t, args, "--public-addr")
 }
@@ -297,8 +286,8 @@ func TestBuildArgs_SameChainArgsForBothModes(t *testing.T) {
 	parachain := rpcConfig()
 	solochain := asSolochain(rpcConfig())
 
-	parachainArgs := BuildArgs(parachain)
-	solochainArgs := BuildArgs(solochain)
+	parachainArgs := BuildArgs(parachain, "")
+	solochainArgs := BuildArgs(solochain, "")
 
 	separatorIdx := indexOf(parachainArgs, "--")
 	chainArgsPara := parachainArgs[:separatorIdx]

@@ -68,7 +68,7 @@ func runnerConfig(binary string) *config.Config {
 }
 
 func fastRunner(cfg *config.Config, logger *zap.Logger) *Runner {
-	r := NewRunner(cfg, logger)
+	r := NewRunner(cfg, logger, "")
 	r.MaxRetries = 1
 	r.InitialBackoff = 10 * time.Millisecond
 	r.MaxBackoff = 50 * time.Millisecond
@@ -80,7 +80,7 @@ func TestRunner_CleanExit(t *testing.T) {
 	cfg := runnerConfig(binary)
 
 	logger, _ := zap.NewDevelopment()
-	runner := NewRunner(cfg, logger)
+	runner := NewRunner(cfg, logger, "")
 
 	t.Setenv("MOCK_NODE_MODE", "exit0")
 	err := runner.Run(context.Background())
@@ -116,7 +116,7 @@ func TestRunner_SignalForwarding(t *testing.T) {
 	cfg := runnerConfig(binary)
 
 	logger, _ := zap.NewDevelopment()
-	runner := NewRunner(cfg, logger)
+	runner := NewRunner(cfg, logger, "")
 
 	t.Setenv("MOCK_NODE_MODE", "signal")
 
@@ -144,7 +144,7 @@ func TestRunner_ContextCancellation(t *testing.T) {
 	cfg := runnerConfig(binary)
 
 	logger, _ := zap.NewDevelopment()
-	runner := NewRunner(cfg, logger)
+	runner := NewRunner(cfg, logger, "")
 
 	t.Setenv("MOCK_NODE_MODE", "signal")
 
@@ -169,7 +169,7 @@ func TestRunner_ContextCancellation(t *testing.T) {
 func TestNewRunner(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cfg := runnerConfig("/bin/echo")
-	runner := NewRunner(cfg, logger)
+	runner := NewRunner(cfg, logger, "")
 	assert.NotNil(t, runner)
 	assert.Equal(t, 3, runner.MaxRetries)
 	assert.Equal(t, 2*time.Second, runner.InitialBackoff)

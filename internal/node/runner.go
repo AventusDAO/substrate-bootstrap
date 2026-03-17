@@ -18,16 +18,18 @@ import (
 type Runner struct {
 	cfg                 *config.Config
 	logger              *zap.Logger
+	publicIP            string
 	MaxRetries          int
 	InitialBackoff      time.Duration
 	MaxBackoff          time.Duration
 	ShutdownGracePeriod time.Duration
 }
 
-func NewRunner(cfg *config.Config, logger *zap.Logger) *Runner {
+func NewRunner(cfg *config.Config, logger *zap.Logger, publicIP string) *Runner {
 	return &Runner{
 		cfg:                 cfg,
 		logger:              logger.With(zap.String("component", "node")),
+		publicIP:            publicIP,
 		MaxRetries:          3,
 		InitialBackoff:      2 * time.Second,
 		MaxBackoff:          30 * time.Second,
@@ -36,7 +38,7 @@ func NewRunner(cfg *config.Config, logger *zap.Logger) *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context) error {
-	args := BuildArgs(r.cfg)
+	args := BuildArgs(r.cfg, r.publicIP)
 
 	r.logger.Info("starting node process",
 		zap.String("binary", r.cfg.Node.Binary),

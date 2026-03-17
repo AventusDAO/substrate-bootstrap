@@ -2,6 +2,7 @@ package publicip
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -41,10 +42,12 @@ func FetchFrom(ctx context.Context, client *http.Client, url string) (string, er
 		return "", &fetchError{msg: "unexpected HTTP status"}
 	}
 
-	body := make([]byte, 64)
-	n, _ := resp.Body.Read(body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+	if err != nil {
+		return "", err
+	}
 
-	ip := strings.TrimSpace(string(body[:n]))
+	ip := strings.TrimSpace(string(body))
 	if ip == "" {
 		return "", &fetchError{msg: "empty response"}
 	}
