@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.1.0...v1.2.0) (2026-03-17)
+
+
+### Features
+
+* add chainspec and relay chainspec download via URL ([#5](https://github.com/AventusDAO/substrate-bootstrap/issues/5)) ([358d975](https://github.com/AventusDAO/substrate-bootstrap/commit/358d975b73db4d0112cd7d16daea870375ea1126))
+
 ## [1.1.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.0.0...v1.1.0) (2026-03-17)
 
 
