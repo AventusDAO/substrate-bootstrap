@@ -230,6 +230,17 @@ func TestDownloadChainspec_HTTPError(t *testing.T) {
 	assert.Contains(t, err.Error(), "status 404")
 }
 
+func TestDownloadChainspec_DestIsDirectory_ReturnsError(t *testing.T) {
+	d := testDownloader(t)
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "chainspec.json")
+	require.NoError(t, os.MkdirAll(dest, 0o755))
+
+	err := d.DownloadChainspec(context.Background(), "http://example.com/chainspec.json", dest, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a regular file")
+}
+
 func TestDownloadChainspec_TooLarge_ContentLength(t *testing.T) {
 	d := testDownloader(t)
 	dest := filepath.Join(t.TempDir(), "chainspec.json")

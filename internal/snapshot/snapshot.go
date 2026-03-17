@@ -128,10 +128,19 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 		return nil
 	}
 
-	if _, err := os.Stat(destPath); err == nil && !force {
-		d.logger.Info("chainspec already exists, skipping download",
-			zap.String("path", destPath))
-		return nil
+	fi, err := os.Stat(destPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("stat chainspec destination %q: %w", destPath, err)
+	}
+	if err == nil {
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("chainspec destination %q is not a regular file", destPath)
+		}
+		if !force {
+			d.logger.Info("chainspec already exists, skipping download",
+				zap.String("path", destPath))
+			return nil
+		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
