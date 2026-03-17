@@ -176,23 +176,12 @@ func (c *Config) Validate() error {
 		errs = append(errs, fmt.Sprintf("chain.port must be 1-65535, got %d", c.Chain.Port))
 	}
 
-	bootnodes := c.Chain.Bootnodes
-	if len(c.Chain.OverrideBootnodes) > 0 {
-		bootnodes = c.Chain.OverrideBootnodes
-	}
-	if len(bootnodes) == 0 {
-		errs = append(errs, "chain requires at least one bootnode (bootnodes or override_bootnodes)")
-	}
-
 	if mode != "solochain" {
 		if c.RelayChain.ChainSpec == "" {
 			errs = append(errs, "relay_chain.chain_spec is required")
 		}
 		if c.RelayChain.Port <= 0 || c.RelayChain.Port > 65535 {
 			errs = append(errs, fmt.Sprintf("relay_chain.port must be 1-65535, got %d", c.RelayChain.Port))
-		}
-		if len(c.RelayChain.Bootnodes) == 0 {
-			errs = append(errs, "relay_chain requires at least one bootnode")
 		}
 	}
 

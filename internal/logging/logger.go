@@ -13,7 +13,7 @@ type Config struct {
 	Format string `yaml:"format"`
 }
 
-func NewLogger(cfg Config, role, nodeName string) (*zap.Logger, error) {
+func NewLogger(cfg Config, nodeName string) (*zap.Logger, error) {
 	level, err := parseLevel(cfg.Level)
 	if err != nil {
 		return nil, err
@@ -38,10 +38,7 @@ func NewLogger(cfg Config, role, nodeName string) (*zap.Logger, error) {
 		return nil, fmt.Errorf("building logger: %w", err)
 	}
 
-	logger = logger.With(
-		zap.String("role", role),
-		zap.String("node_name", nodeName),
-	)
+	logger = logger.With(zap.String("node_name", nodeName))
 
 	return logger, nil
 }

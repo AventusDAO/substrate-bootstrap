@@ -197,7 +197,7 @@ relay_chain:
 	assert.Contains(t, err.Error(), "node.name is required")
 }
 
-func TestLoad_MissingBootnodes(t *testing.T) {
+func TestLoad_NoBootnodes_UsesChainspec(t *testing.T) {
 	yaml := `
 node:
   name: test
@@ -205,11 +205,12 @@ chain:
   chain_spec: /opt/chain.json
 relay_chain:
   chain_spec: /opt/relay.json
-  bootnodes: ["/dns/b/tcp/1/p2p/y"]
 `
-	_, err := Load(writeConfig(t, yaml))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one bootnode")
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Chain.Bootnodes)
+	assert.Empty(t, cfg.Chain.OverrideBootnodes)
+	assert.Empty(t, cfg.RelayChain.Bootnodes)
 }
 
 func TestLoad_OverrideBootnodes(t *testing.T) {
@@ -384,7 +385,7 @@ relay_chain:
 	assert.Contains(t, err.Error(), "relay_chain.chain_spec is required")
 }
 
-func TestLoad_MissingRelayBootnodes(t *testing.T) {
+func TestLoad_NoRelayBootnodes_UsesChainspec(t *testing.T) {
 	yaml := `
 node:
   name: test
@@ -393,11 +394,11 @@ chain:
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
-  bootnodes: []
 `
-	_, err := Load(writeConfig(t, yaml))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "relay_chain requires at least one bootnode")
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Len(t, cfg.Chain.Bootnodes, 1)
+	assert.Empty(t, cfg.RelayChain.Bootnodes)
 }
 
 func TestLoad_InvalidRelayPort(t *testing.T) {

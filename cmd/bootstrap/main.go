@@ -31,13 +31,6 @@ const (
 	ExitPermissionError = 3
 )
 
-func deriveRole(cfg *config.Config) string {
-	if cfg.Node.EnableKeystore {
-		return "listener"
-	}
-	return "node"
-}
-
 func main() {
 	os.Exit(mainE())
 }
@@ -64,8 +57,7 @@ func mainE() int {
 		return ExitGeneralError
 	}
 
-	role := deriveRole(cfg)
-	logger, err := logging.NewLogger(cfg.Logging, role, cfg.Node.Name)
+	logger, err := logging.NewLogger(cfg.Logging, cfg.Node.Name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error initializing logger: %v\n", err)
 		return ExitGeneralError
@@ -75,8 +67,7 @@ func mainE() int {
 	logger.Info("substrate-bootstrap starting",
 		zap.String("version", Version),
 		zap.String("build_time", BuildTime),
-		zap.String("config", *configPath),
-		zap.String("role", role))
+		zap.String("config", *configPath))
 
 	ctx := context.Background()
 
