@@ -1,4 +1,5 @@
 # substrate-bootstrap configuration
+# Full reference: docs/CONFIG.md
 # Only override what differs from defaults (see internal/config/config.go DefaultConfig).
 # Default mode is "parachain". Set node.mode to "solochain" for standalone chains.
 #
@@ -25,8 +26,10 @@ node:
 
 # In parachain mode, these are the parachain args (before the -- separator).
 # In solochain mode, this is the main (and only) chain config.
+# Chain uses --listen-addr /ip4/0.0.0.0/tcp/{port}; default 40333.
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  # port: 40333                          # default; override to use different port
   # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/chain-data/chainspec.json
   # force_download_chainspec: false      # overwrite existing chainspec when downloading
   bootnodes:
@@ -43,8 +46,10 @@ chain:
   #   - "--db-cache=2048"
   #   - "--offchain-worker=always"         # for listener/hybrid nodes
 
+# Relay chain uses --port; default 30333.
 relay_chain:
   chain_spec: /opt/chainspecs/polkadot.json
+  # port: 30333                          # default; override to use different port
   # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/relaychain-data/chainspec.json
   # force_download_chainspec: false      # overwrite existing chainspec when downloading
   bootnodes:

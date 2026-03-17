@@ -1,6 +1,7 @@
 # Solochain RPC node configuration
 # Standalone chain (no relay chain). Serves JSON-RPC endpoints.
 # RPC args via chain.extra_args.
+# Full reference: docs/CONFIG.md
 
 node:
   name: "${HOSTNAME}"
@@ -8,7 +9,7 @@ node:
   # binary: /usr/bin/node
 
 chain:
-  chain_spec: /etc/bootstrap/configs/mainnet.json
+  chain_spec: /opt/chainspecs/mainnet.json
   blocks_pruning: archive-canonical
   state_pruning: archive-canonical
   bootnodes:

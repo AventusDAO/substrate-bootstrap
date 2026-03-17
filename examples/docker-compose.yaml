@@ -36,10 +36,10 @@ services:
     image: substrate-bootstrap:latest
     container_name: solochain-rpc
     platform: linux/amd64
-    #command: ["--config", "/etc/bootstrap/configs/solochain-rpc.yaml"]
+    command: ["--config", "/etc/bootstrap/configs/solochain-rpc.yaml"]
     volumes:
-      - ./data:/data
-      - ./solochain-testnet.yaml:/opt/bootstrap/config.yaml:ro
+      - solochain-rpc-data:/data
+      - ./solochain-rpc.yaml:/etc/bootstrap/configs/solochain-rpc.yaml:ro
     ports:
       - "9945:9944" # JSON-RPC
       - "40335:40333" # P2P

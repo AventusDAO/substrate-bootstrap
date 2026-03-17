@@ -60,6 +60,7 @@ type NodeConfig struct {
 	Name           string `yaml:"name"`
 	Mode           string `yaml:"mode"`
 	EnableKeystore bool   `yaml:"enable_keystore"`
+	PublicIP       string `yaml:"-"` // set at runtime when port non-default; auto-detected from ifconfig.io
 }
 
 // ChainConfig holds chain-specific settings.

@@ -1,5 +1,6 @@
 # Solochain Listener node configuration
 # Standalone chain with offchain workers and keystore.
+# Full reference: docs/CONFIG.md
 
 node:
   name: "${HOSTNAME}"

@@ -1,5 +1,6 @@
 # Parachain Hybrid node configuration
 # Both RPC endpoints and keystore (offchain workers). enable_keystore: true + RPC args in extra_args.
+# Full reference: docs/CONFIG.md
 
 node:
   name: "${HOSTNAME}"

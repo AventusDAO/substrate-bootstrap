@@ -66,7 +66,7 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 		"--blocks-pruning=archive-canonical",
 		"--state-pruning=256",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
-		"--port", "40333",
+		"--listen-addr=/ip4/0.0.0.0/tcp/40333",
 		"--prometheus-port", "9615",
 		"--prometheus-external",
 		"--db-cache=2048",
@@ -78,7 +78,6 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 		"--name", "rpc-node-1",
 		"--base-path", "/data/relaychain-data",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
-		"--execution", "wasm",
 		"--chain=/opt/chainspecs/polkadot.json",
 		"--port", "30333",
 		"--bootnodes", "/dns/relay-boot.parity.io/tcp/30333/p2p/12D3KooWR",
@@ -99,7 +98,7 @@ func TestBuildArgs_ListenerRole(t *testing.T) {
 		"--blocks-pruning=archive-canonical",
 		"--state-pruning=256",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
-		"--port", "40333",
+		"--listen-addr=/ip4/0.0.0.0/tcp/40333",
 		"--prometheus-port", "9615",
 		"--prometheus-external",
 		"--keystore-path", "/data/keystore",
@@ -109,7 +108,6 @@ func TestBuildArgs_ListenerRole(t *testing.T) {
 		"--name", "listener-node-1",
 		"--base-path", "/data/relaychain-data",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
-		"--execution", "wasm",
 		"--chain=/opt/chainspecs/polkadot.json",
 		"--port", "30333",
 		"--bootnodes", "/dns/relay-boot.parity.io/tcp/30333/p2p/12D3KooWR",
@@ -207,7 +205,6 @@ func TestBuildArgs_SolochainRPC(t *testing.T) {
 	args := BuildArgs(cfg)
 
 	assert.NotContains(t, args, "--")
-	assert.NotContains(t, args, "--execution")
 	assert.Contains(t, args, "--name")
 	assert.Contains(t, args, "--rpc-port=9944")
 	assert.Contains(t, args, "--db-cache=2048")
@@ -251,6 +248,48 @@ func TestBuildArgs_SolochainExtraArgs(t *testing.T) {
 	args := BuildArgs(cfg)
 
 	assert.Contains(t, args, "--registered-node-id=5Grwva")
+}
+
+// --- Public IP / --public-addr tests ---
+
+func TestBuildArgs_PublicAddr_ChainNonDefaultPort(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Node.PublicIP = "1.2.3.4"
+	cfg.Chain.Port = 41333
+	args := BuildArgs(cfg)
+
+	separatorIdx := indexOf(args, "--")
+	chainArgs := args[:separatorIdx]
+	assert.Contains(t, chainArgs, "--public-addr=/ip4/1.2.3.4/tcp/41333/ws")
+}
+
+func TestBuildArgs_PublicAddr_ChainDefaultPort(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Node.PublicIP = "1.2.3.4"
+	cfg.Chain.Port = 40333
+	args := BuildArgs(cfg)
+
+	assert.NotContains(t, args, "--public-addr")
+}
+
+func TestBuildArgs_PublicAddr_RelayNonDefaultPort(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Node.PublicIP = "1.2.3.4"
+	cfg.RelayChain.Port = 31333
+	args := BuildArgs(cfg)
+
+	separatorIdx := indexOf(args, "--")
+	relayArgs := args[separatorIdx+1:]
+	assert.Contains(t, relayArgs, "--public-addr=/ip4/1.2.3.4/tcp/31333/ws")
+}
+
+func TestBuildArgs_NoPublicAddr_WhenEmpty(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Chain.Port = 41333
+	cfg.RelayChain.Port = 31333
+	args := BuildArgs(cfg)
+
+	assert.NotContains(t, args, "--public-addr")
 }
 
 // The key invariant: chain args are identical regardless of mode.

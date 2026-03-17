@@ -6,6 +6,11 @@ import (
 	"github.com/nicce/substrate-bootstrap/internal/config"
 )
 
+const (
+	defaultChainPort = 40333
+	defaultRelayPort = 30333
+)
+
 // BuildArgs constructs the full CLI arguments for the node binary.
 // Chain args are identical for solochain and parachain modes.
 // In parachain mode, relay chain args are appended after the "--" separator.
@@ -32,7 +37,13 @@ func buildChainArgs(cfg *config.Config) []string {
 
 	args = append(args, pruningArgs(cfg.Chain)...)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
-	args = append(args, "--port", fmt.Sprintf("%d", cfg.Chain.Port))
+	args = append(args, fmt.Sprintf("--listen-addr=/ip4/0.0.0.0/tcp/%d", cfg.Chain.Port))
+
+	// Add --public-addr when port is overwritten (non-default); public IP is auto-detected
+	if cfg.Node.PublicIP != "" && cfg.Chain.Port != defaultChainPort {
+		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", cfg.Node.PublicIP, cfg.Chain.Port))
+	}
+
 	args = append(args, prometheusArgs(cfg.Prometheus)...)
 
 	if cfg.Node.EnableKeystore {
@@ -54,14 +65,14 @@ func buildRelayChainArgs(cfg *config.Config) []string {
 	)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
 
-	if cfg.RelayChain.Execution != "" {
-		args = append(args, "--execution", cfg.RelayChain.Execution)
-	}
-
 	args = append(args,
 		fmt.Sprintf("--chain=%s", cfg.RelayChain.ChainSpec),
 		"--port", fmt.Sprintf("%d", cfg.RelayChain.Port),
 	)
+
+	if cfg.Node.PublicIP != "" && cfg.RelayChain.Port != defaultRelayPort {
+		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d/ws", cfg.Node.PublicIP, cfg.RelayChain.Port))
+	}
 
 	for _, bn := range cfg.RelayChain.Bootnodes {
 		args = append(args, "--bootnodes", bn)

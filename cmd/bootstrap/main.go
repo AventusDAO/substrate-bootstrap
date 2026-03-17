@@ -5,9 +5,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/nicce/substrate-bootstrap/internal/keystore"
 	"github.com/nicce/substrate-bootstrap/internal/logging"
 	"github.com/nicce/substrate-bootstrap/internal/node"
+	"github.com/nicce/substrate-bootstrap/internal/publicip"
 	"github.com/nicce/substrate-bootstrap/internal/snapshot"
 )
 
@@ -143,6 +146,8 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
 
+	resolvePublicIP(ctx, cfg, logger)
+
 	runner := node.NewRunner(cfg, logger)
 	err := runner.Run(ctx)
 
@@ -153,6 +158,29 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	}
 
 	return err
+}
+
+const (
+	defaultChainPort = 40333
+	defaultRelayPort = 30333
+)
+
+func resolvePublicIP(ctx context.Context, cfg *config.Config, logger *zap.Logger) {
+	chainPortNonDefault := cfg.Chain.Port != defaultChainPort
+	relayPortNonDefault := !cfg.IsSolochain() && cfg.RelayChain.Port != defaultRelayPort
+	if !chainPortNonDefault && !relayPortNonDefault {
+		return
+	}
+
+	logger.Debug("Port overwritten, fetching public IP for --public-addr")
+	client := &http.Client{Timeout: 5 * time.Second}
+	ip, err := publicip.Fetch(ctx, client)
+	if err != nil {
+		logger.Error("Failed to get public IP", zap.Error(err))
+		return
+	}
+	cfg.Node.PublicIP = ip
+	logger.Info("Detected public IP", zap.String("public_ip", ip))
 }
 
 func logBootnodeWarnings(cfg *config.Config, logger *zap.Logger) {
