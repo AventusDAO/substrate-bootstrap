@@ -121,11 +121,6 @@ make coverage  # Enforce 80% coverage
 make integration  # Integration tests
 make build     # Cross-compile binaries
 ```
-
-## Releases
-
-Releases are automated with [Release Please](https://github.com/googleapis/release-please). Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.) so Release Please can generate changelogs and version bumps. When a release PR is merged to `main`, a GitHub release is created with pre-built binaries for Linux (amd64, arm64) and macOS (arm64).
-
 ## Project structure
 
 ```
