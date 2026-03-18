@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.2.0...v1.3.0) (2026-03-18)
+
+
+### Features
+
+* public IP auto-detection, chain listen-addr, config docs ([#7](https://github.com/AventusDAO/substrate-bootstrap/issues/7)) ([b04395b](https://github.com/AventusDAO/substrate-bootstrap/commit/b04395b548769c99c29cab2547ad61508f51ebbf))
+
 ## [1.2.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.1.0...v1.2.0) (2026-03-17)
 
 
