@@ -1,6 +1,7 @@
 # Parachain RPC node configuration
 # Serves JSON-RPC endpoints. No keystore, no offchain worker.
 # RPC args via chain.extra_args.
+# Full reference: docs/CONFIG.md
 
 node:
   name: "${HOSTNAME}"

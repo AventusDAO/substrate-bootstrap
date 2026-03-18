@@ -84,7 +84,6 @@ type RelayChainConfig struct {
 	ChainspecURL           string   `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to RelayChainspecPath()
 	ForceDownloadChainspec bool     `yaml:"force_download_chainspec"` // overwrite existing file
 	Port                   int      `yaml:"port"`
-	Execution              string   `yaml:"execution"`
 	Bootnodes              []string `yaml:"bootnodes"`
 	SnapshotURL            string   `yaml:"snapshot_url"`
 	RelayChainPath         string   `yaml:"relay_chain_path"` // e.g. "paseo" for Paseo; required when snapshot_url is set (rclone)
@@ -124,8 +123,7 @@ func DefaultConfig() Config {
 			StatePruning:  "256",
 		},
 		RelayChain: RelayChainConfig{
-			Port:      30333,
-			Execution: "wasm",
+			Port: 30333,
 		},
 		Prometheus: PrometheusConfig{
 			Enabled:  true,

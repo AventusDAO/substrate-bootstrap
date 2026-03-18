@@ -5,9 +5,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/nicce/substrate-bootstrap/internal/keystore"
 	"github.com/nicce/substrate-bootstrap/internal/logging"
 	"github.com/nicce/substrate-bootstrap/internal/node"
+	"github.com/nicce/substrate-bootstrap/internal/publicip"
 	"github.com/nicce/substrate-bootstrap/internal/snapshot"
 )
 
@@ -143,7 +146,8 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
 
-	runner := node.NewRunner(cfg, logger)
+	publicIP := resolvePublicIP(ctx, logger, cfg)
+	runner := node.NewRunner(cfg, logger, publicIP)
 	err := runner.Run(ctx)
 
 	if keystoreMgr != nil {
@@ -153,6 +157,24 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	}
 
 	return err
+}
+
+func resolvePublicIP(ctx context.Context, logger *zap.Logger, cfg *config.Config) string {
+	if v := os.Getenv("SUBSTRATE_BOOTSTRAP_DISABLE_PUBLIC_IP"); strings.EqualFold(v, "1") || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes") {
+		logger.Info("Public IP lookup disabled via SUBSTRATE_BOOTSTRAP_DISABLE_PUBLIC_IP")
+		return ""
+	}
+	if cfg.Chain.Port == 40333 {
+		return ""
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	ip, err := publicip.Fetch(ctx, client)
+	if err != nil {
+		logger.Warn("Failed to get public IP (continuing without --public-addr)", zap.Error(err))
+		return ""
+	}
+	logger.Info("Detected public IP", zap.String("public_ip", ip))
+	return ip
 }
 
 func logBootnodeWarnings(cfg *config.Config, logger *zap.Logger) {

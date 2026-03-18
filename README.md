@@ -40,42 +40,13 @@ Produces static binaries in `bin/`:
 
 ## Configuration
 
-Configuration is YAML-based with `${ENV_VAR}` expansion. See `configs/config.yaml` and `examples/` for samples.
+Configuration is YAML-based with `${ENV_VAR}` expansion. See **[docs/CONFIG.md](docs/CONFIG.md)** for the full reference.
 
-### Key sections
+Quick links:
 
-| Section      | Description                                                                 |
-| ------------ | --------------------------------------------------------------------------- |
-| `node`       | Binary path, name, `enable_keystore` (default false), mode (`parachain`/`solochain`) |
-| `chain`      | Chain spec (or `chainspec_url` to download), port, pruning, bootnodes, snapshot URL, `extra_args` (RPC flags, etc.) |
-| `relay_chain`| Relay chain config (parachain mode only)                                    |
-| `keystore`   | `cleanup_on_stop` (when `enable_keystore: true`)                            |
-| `bootstrap`  | Commands to run before node start, required env vars                        |
-
-**Bootstrap commands** require an sh-compatible shell (`/bin/sh` or BusyBox) in the runtime. Distroless or static containers typically do not include one — use an image with a shell (e.g. Alpine, Debian slim) if you use `bootstrap.commands`.
-
-### Chainspec download
-
-Set `chainspec_url` (and optionally `force_download_chainspec`) under `chain` or `relay_chain` to download the chainspec from a URL before the node starts. When set, the config's `chain_spec` path is ignored and the node uses the downloaded file at `/data/chain-data/chainspec.json` or `/data/relaychain-data/chainspec.json`. Bootstrap commands that need the chainspec path (e.g. `key insert --chain`) can reference these fixed paths.
-
-### Node types
-
-- **RPC-only**: Add `--rpc-port`, `--rpc-external`, `--db-cache`, etc. to `chain.extra_args`. No keystore.
-- **Listener-only**: `enable_keystore: true`, no RPC args in `extra_args`. Offchain workers via `--offchain-worker=always`.
-- **Hybrid**: `enable_keystore: true` + RPC args in `chain.extra_args`.
-
-### Fixed data volumes
-
-All data paths are hardcoded — **not configurable** in YAML. Mount volumes at these paths:
-
-| Path                           | Purpose                                                |
-| ------------------------------ | ------------------------------------------------------ |
-| `/data/chain-data`             | Chain data (`--base-path` target)                      |
-| `/data/chain-data/chainspec.json` | Downloaded chainspec (when `chain.chainspec_url` is set) |
-| `/data/relaychain-data`        | Relay chain snapshots (parachain mode only)            |
-| `/data/relaychain-data/chainspec.json` | Downloaded relay chainspec (when `relay_chain.chainspec_url` is set) |
-| `/data/keystore`               | Keystore files (when `enable_keystore: true`)          |
-| `/data/bootstrap_state.json`   | Bootstrap state tracking                               |
+- **Config reference** — [docs/CONFIG.md](docs/CONFIG.md) (sections, defaults, node types, snapshots, public address)
+- **Sample config** — [configs/config.yaml](configs/config.yaml)
+- **Examples** — [examples/](examples/) (parachain-rpc, parachain-listener, parachain-hybrid, solochain-rpc, solochain-listener)
 
 ## Usage
 
@@ -94,14 +65,6 @@ services:
       - "40333:40333" # P2P
       - "9615:9615"   # Prometheus
 ```
-
-### Example configs
-
-- `examples/parachain-rpc.yaml` — Parachain RPC node
-- `examples/parachain-listener.yaml` — Parachain listener with keystore
-- `examples/parachain-hybrid.yaml` — Parachain hybrid (RPC + keystore)
-- `examples/solochain-rpc.yaml` — Solochain RPC node
-- `examples/solochain-listener.yaml` — Solochain listener with keystore
 
 ## Exit codes
 
@@ -126,6 +89,7 @@ make build     # Cross-compile binaries
 ```
 .
 ├── cmd/bootstrap/       # Main entrypoint
+├── docs/                # Documentation (CONFIG.md)
 ├── internal/
 │   ├── config/         # YAML config, validation, path constants
 │   ├── bootstrap/      # Bootstrap state, command execution

@@ -9,8 +9,9 @@ import (
 // BuildArgs constructs the full CLI arguments for the node binary.
 // Chain args are identical for solochain and parachain modes.
 // In parachain mode, relay chain args are appended after the "--" separator.
-func BuildArgs(cfg *config.Config) []string {
-	args := buildChainArgs(cfg)
+// publicIP, when non-empty, is used for --public-addr (always added when available).
+func BuildArgs(cfg *config.Config, publicIP string) []string {
+	args := buildChainArgs(cfg, publicIP)
 
 	if !cfg.IsSolochain() {
 		args = append(args, "--")
@@ -20,7 +21,7 @@ func BuildArgs(cfg *config.Config) []string {
 	return args
 }
 
-func buildChainArgs(cfg *config.Config) []string {
+func buildChainArgs(cfg *config.Config, publicIP string) []string {
 	var args []string
 
 	args = append(args,
@@ -32,7 +33,12 @@ func buildChainArgs(cfg *config.Config) []string {
 
 	args = append(args, pruningArgs(cfg.Chain)...)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
-	args = append(args, "--port", fmt.Sprintf("%d", cfg.Chain.Port))
+	args = append(args, fmt.Sprintf("--listen-addr=/ip4/0.0.0.0/tcp/%d", cfg.Chain.Port))
+
+	if publicIP != "" {
+		args = append(args, fmt.Sprintf("--public-addr=/ip4/%s/tcp/%d", publicIP, cfg.Chain.Port))
+	}
+
 	args = append(args, prometheusArgs(cfg.Prometheus)...)
 
 	if cfg.Node.EnableKeystore {
@@ -53,10 +59,6 @@ func buildRelayChainArgs(cfg *config.Config) []string {
 		"--base-path", config.RelayChainDataPath(),
 	)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
-
-	if cfg.RelayChain.Execution != "" {
-		args = append(args, "--execution", cfg.RelayChain.Execution)
-	}
 
 	args = append(args,
 		fmt.Sprintf("--chain=%s", cfg.RelayChain.ChainSpec),

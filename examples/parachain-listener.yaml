@@ -1,5 +1,6 @@
 # Parachain Listener node configuration
 # Runs offchain workers with keystore. No RPC endpoints exposed.
+# Full reference: docs/CONFIG.md
 
 node:
   name: "${HOSTNAME}"

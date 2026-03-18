@@ -88,7 +88,6 @@ func TestRun_RPCCleanExit(t *testing.T) {
 		RelayChain: config.RelayChainConfig{
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
-			Execution: "wasm",
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},
 		},
 		Logging: logging.Config{Level: "info", Format: "json"},
@@ -120,7 +119,6 @@ func TestRun_ListenerCleanExit(t *testing.T) {
 		RelayChain: config.RelayChainConfig{
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
-			Execution: "wasm",
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},
 		},
 		Keystore: config.KeystoreConfig{
