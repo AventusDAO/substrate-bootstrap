@@ -29,6 +29,9 @@ node:
 # Chain uses --listen-addr /ip4/0.0.0.0/tcp/{port}; default 40333.
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  chain_data:
+    # database: rocksdb                  # default; use paritydb for ParityDB snapshots/layout
+    chain_id: my_parachain               # required — Substrate chains/<chain_id>/ name (not a full path)
   # port: 40333                          # default; override to use different port
   # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/chain-data/chainspec.json
   # force_download_chainspec: false      # overwrite existing chainspec when downloading
@@ -38,7 +41,6 @@ chain:
   # blocks_pruning: archive-canonical     # default; use "archive" to keep all blocks
   # state_pruning: "256"                  # default; use "archive" to keep all state
   # snapshot_url: ""                      # rclone URL (polkadot-style) or tar archive URL
-  # snapshot_chain_path: ""               # required for Polkadot-style snapshot_url (e.g. avn_staging_dev_testnet)
   # extra_args:                           # RPC args, offchain-worker, db-cache, etc.
   #   - "--rpc-port=9944"
   #   - "--rpc-external"
@@ -49,6 +51,9 @@ chain:
 # Relay chain uses --port; default 30333.
 relay_chain:
   chain_spec: /opt/chainspecs/polkadot.json
+  chain_data:
+    # database: rocksdb                  # default
+    # chain_id: polkadot                 # default relay segment; override e.g. paseo, kusama
   # port: 30333                          # default; override to use different port
   # chainspec_url: ""                    # when set, chain_spec is ignored; downloaded to /data/relaychain-data/chainspec.json
   # force_download_chainspec: false      # overwrite existing chainspec when downloading
@@ -56,10 +61,8 @@ relay_chain:
     - /dns/polkadot-boot.parity.io/tcp/30333/p2p/12D3KooW...
   # Uses rclone for Polkadot-style snapshots (files.txt manifest + parallel downloads).
   # For tar archives, just use a URL ending in .tar.gz, .tar.lz4, etc.
-  # For Polkadot-style URLs, relay_chain_path is required (matches chain id in chainspec, e.g. paseo).
-  # Base URL (no version) auto-resolves latest via latest_version.meta.txt.
+  # chain_id must match snapshot chain id (e.g. polkadot, paseo). Base URL (no version) auto-resolves latest.
   # snapshot_url: https://snapshots.polkadot.io/polkadot-paritydb-prune
-  # relay_chain_path: polkadot
 
 telemetry:
   urls:
@@ -78,6 +81,8 @@ telemetry:
 #
 # chain:
 #   chain_spec: /opt/chainspecs/mainnet.json
+#   chain_data:
+#     chain_id: my_solochain
 #   blocks_pruning: archive-canonical
 #   state_pruning: archive-canonical
 #   bootnodes:

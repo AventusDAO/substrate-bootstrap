@@ -10,6 +10,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  chain_data:
+    chain_id: my_parachain
   bootnodes:
     - /dns/parachain-boot-1.example.io/tcp/40333/p2p/12D3KooW...
     - /dns/parachain-boot-2.example.io/tcp/40333/p2p/12D3KooW...
