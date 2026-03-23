@@ -105,4 +105,4 @@ make build     # Cross-compile binaries
 
 ## License
 
-See repository for license information.
+Licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0).
