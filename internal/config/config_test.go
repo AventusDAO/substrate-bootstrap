@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -703,4 +704,88 @@ relay_chain:
 	_, err := Load(writeConfig(t, yaml))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "chain.chain_data.database must be")
+}
+
+func TestLoad_InvalidRelayChainDatabase(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  chain_data:
+    chain_id: test_relay
+    database: badger
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	_, err := Load(writeConfig(t, yaml))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "relay_chain.chain_data.database must be")
+}
+
+func TestLoad_ChainIDTrimmed(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: "  test_parachain  "
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Equal(t, "test_parachain", cfg.Chain.ChainData.ChainID)
+	assert.Equal(t, "polkadot", cfg.RelayChain.ChainData.ChainID)
+}
+
+func TestLoad_InvalidChainIDPathTraversal(t *testing.T) {
+	base := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: %s
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	for _, id := range []string{"../x", "../../relaychain-data", "..", "a/b"} {
+		t.Run("chain_"+id, func(t *testing.T) {
+			_, err := Load(writeConfig(t, fmt.Sprintf(base, id)))
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "chain.chain_data.chain_id must be a single directory name")
+		})
+	}
+
+	relayBase := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  chain_data:
+    chain_id: %s
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	for _, id := range []string{"../x", "../../chain-data", "..", "a\\b"} {
+		t.Run("relay_"+id, func(t *testing.T) {
+			_, err := Load(writeConfig(t, fmt.Sprintf(relayBase, id)))
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "relay_chain.chain_data.chain_id must be a single directory name")
+		})
+	}
 }

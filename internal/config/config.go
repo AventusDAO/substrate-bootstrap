@@ -194,9 +194,22 @@ func (c *Config) applyChainDataDefaults() {
 	}
 	c.RelayChain.ChainData.Database = strings.ToLower(strings.TrimSpace(c.RelayChain.ChainData.Database))
 
-	if strings.TrimSpace(c.RelayChain.ChainData.ChainID) == "" {
+	c.Chain.ChainData.ChainID = strings.TrimSpace(c.Chain.ChainData.ChainID)
+	c.RelayChain.ChainData.ChainID = strings.TrimSpace(c.RelayChain.ChainData.ChainID)
+	if c.RelayChain.ChainData.ChainID == "" {
 		c.RelayChain.ChainData.ChainID = "polkadot"
 	}
+}
+
+// isSafeChainDirSegment reports whether id is safe to use as a single path segment under chains/<chain_id>/.
+func isSafeChainDirSegment(id string) bool {
+	if id == "" || id == "." || id == ".." {
+		return false
+	}
+	if strings.ContainsAny(id, `/\`) {
+		return false
+	}
+	return filepath.Clean(id) == id
 }
 
 func expandEnvVars(input string) string {
@@ -232,8 +245,10 @@ func (c *Config) Validate() error {
 		errs = append(errs, "chain.chain_spec or chain.chainspec_url is required")
 	}
 
-	if strings.TrimSpace(c.Chain.ChainData.ChainID) == "" {
+	if c.Chain.ChainData.ChainID == "" {
 		errs = append(errs, "chain.chain_data.chain_id is required (Substrate chains/<chain_id>/ directory name, not a full path)")
+	} else if !isSafeChainDirSegment(c.Chain.ChainData.ChainID) {
+		errs = append(errs, "chain.chain_data.chain_id must be a single directory name (no path separators or ..)")
 	}
 
 	switch c.Chain.ChainData.Database {
@@ -253,8 +268,10 @@ func (c *Config) Validate() error {
 		if c.RelayChain.Port <= 0 || c.RelayChain.Port > 65535 {
 			errs = append(errs, fmt.Sprintf("relay_chain.port must be 1-65535, got %d", c.RelayChain.Port))
 		}
-		if strings.TrimSpace(c.RelayChain.ChainData.ChainID) == "" {
-			errs = append(errs, "relay_chain.chain_data.chain_id is required")
+		if c.RelayChain.ChainData.ChainID == "" {
+			errs = append(errs, "relay_chain.chain_data.chain_id is required (Substrate chains/<chain_id>/ directory name, not a full path)")
+		} else if !isSafeChainDirSegment(c.RelayChain.ChainData.ChainID) {
+			errs = append(errs, "relay_chain.chain_data.chain_id must be a single directory name (no path separators or ..)")
 		}
 		switch c.RelayChain.ChainData.Database {
 		case "rocksdb", "paritydb":
