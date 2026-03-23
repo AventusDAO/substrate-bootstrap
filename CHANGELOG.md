@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.3.0...v1.3.1) (2026-03-23)
+
+
+### Miscellaneous
+
+* add GPL-3.0 license and README notice ([#9](https://github.com/AventusDAO/substrate-bootstrap/issues/9)) ([50afa33](https://github.com/AventusDAO/substrate-bootstrap/commit/50afa3352d19d35eda541f03db3dbc2b507275a9))
+
 ## [1.3.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.2.0...v1.3.0) (2026-03-18)
 
 
