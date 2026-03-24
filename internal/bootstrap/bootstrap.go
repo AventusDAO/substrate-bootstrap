@@ -33,6 +33,7 @@ type CommandExecutor interface {
 type ShellExecutor struct{}
 
 func (s *ShellExecutor) Execute(ctx context.Context, command string) error {
+	// #nosec G204 -- bootstrap runs operator-configured shell commands by design
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -202,7 +203,7 @@ func (b *Bootstrapper) saveState(state *BootstrapState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(b.stateFile, data, 0o644)
+	return os.WriteFile(b.stateFile, data, 0o600)
 }
 
 func hashCommands(commands []string) string {

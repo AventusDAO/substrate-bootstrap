@@ -92,6 +92,7 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 func (r *Runner) runProcess(ctx context.Context, sigCh <-chan os.Signal, args []string) (exitCode int, terminated bool, err error) {
+	// #nosec G204 -- node binary path comes from operator config; required to spawn the chain process
 	cmd := exec.CommandContext(ctx, r.cfg.Node.Binary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

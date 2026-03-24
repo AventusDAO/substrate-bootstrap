@@ -161,6 +161,7 @@ func DefaultConfig() Config {
 var envVarPattern = regexp.MustCompile(`\$\{([^}]+)\}`)
 
 func Load(path string) (*Config, error) {
+	// #nosec G304 -- path is the explicit --config argument from the operator
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config file %s: %w", path, err)
