@@ -1,4 +1,4 @@
-.PHONY: lint test coverage integration build all clean
+.PHONY: lint test coverage integration build all clean security
 
 BINARY := bin/substrate-bootstrap
 COVERAGE_FILE := coverage.out
@@ -26,6 +26,10 @@ build:
 	./scripts/build.sh
 
 all: lint test coverage integration build
+
+# Full module scan (including tests/e2e mock_node); run via `make security` / CI security job.
+security:
+	go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude-generated ./...
 
 clean:
 	rm -rf bin/ $(COVERAGE_FILE)

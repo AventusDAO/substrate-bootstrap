@@ -94,7 +94,7 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 		zap.String("url", snapshotURL),
 		zap.String("path", dataPath))
 
-	if err := os.MkdirAll(dataPath, 0o755); err != nil {
+	if err := os.MkdirAll(dataPath, 0o750); err != nil {
 		return nil, fmt.Errorf("creating data directory %s: %w", dataPath, err)
 	}
 
@@ -143,7 +143,7 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
 		return fmt.Errorf("creating chainspec directory: %w", err)
 	}
 
@@ -179,9 +179,9 @@ func (d *Downloader) DownloadChainspec(ctx context.Context, url, destPath string
 	tmpPath := tmpFile.Name()
 	defer func() {
 		if tmpFile != nil {
-			tmpFile.Close()
+			_ = tmpFile.Close()
 		}
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 	}()
 
 	limitedReader := io.LimitReader(resp.Body, maxChainspecSizeBytes+1)
@@ -270,6 +270,7 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 	d.logger.Info("downloading files.txt manifest",
 		zap.String("url", snapshotURL+"/files.txt"))
 
+	// #nosec G204 -- rclone fixed argv; URL and dest come from operator snapshot config
 	copyURLCmd := exec.CommandContext(ctx, "rclone", "copyurl",
 		snapshotURL+"/files.txt", filesListPath)
 	copyURLCmd.Stdout = os.Stdout
@@ -277,7 +278,7 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 	if err := copyURLCmd.Run(); err != nil {
 		return fmt.Errorf("rclone copyurl files.txt: %w", err)
 	}
-	defer os.Remove(filesListPath)
+	defer func() { _ = os.Remove(filesListPath) }()
 
 	transfers := parallelTransfers()
 	d.logger.Info("starting rclone copy with parallel transfers",
@@ -285,6 +286,7 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 		zap.String("transfers", transfers))
 
 	start := time.Now()
+	// #nosec G204 -- rclone fixed argv; snapshot URL and dest from operator config
 	rcloneCmd := exec.CommandContext(ctx, "rclone", "copy",
 		"--progress",
 		"--transfers", transfers,
@@ -402,33 +404,51 @@ func extractTarSecure(destPath string, r io.Reader) error {
 		target := filepath.Join(absDest, filepath.Clean(hdr.Name))
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := os.MkdirAll(target, 0o750); err != nil {
 				return fmt.Errorf("creating directory %s: %w", hdr.Name, err)
 			}
 		case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA for compatibility with legacy archives
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 				return fmt.Errorf("creating parent for %s: %w", hdr.Name, err)
 			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(hdr.Mode)&0o777)
-			if err != nil {
-				return fmt.Errorf("creating file %s: %w", hdr.Name, err)
+			if err := extractTarRegularFile(target, tr, hdr); err != nil {
+				return err
 			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				return fmt.Errorf("writing file %s: %w", hdr.Name, err)
-			}
-			f.Close()
 		case tar.TypeSymlink:
 			if err := validateSymlinkTarget(absDest, hdr.Name, hdr.Linkname); err != nil {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 				return fmt.Errorf("creating parent for symlink %s: %w", hdr.Name, err)
 			}
 			if err := os.Symlink(hdr.Linkname, target); err != nil {
 				return fmt.Errorf("creating symlink %s: %w", hdr.Name, err)
 			}
 		}
+	}
+	return nil
+}
+
+func tarEntryPerm(hdr *tar.Header) os.FileMode {
+	const mask int64 = 0o777
+	if hdr.Mode < 0 {
+		return 0o644
+	}
+	return os.FileMode(uint32(hdr.Mode & mask))
+}
+
+func extractTarRegularFile(target string, tr *tar.Reader, hdr *tar.Header) error {
+	perm := tarEntryPerm(hdr)
+	// #nosec G304 -- path confined under destination root by validateTarPath before extraction
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	if err != nil {
+		return fmt.Errorf("creating file %s: %w", hdr.Name, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	src := io.LimitReader(tr, hdr.Size)
+	if _, err := io.Copy(f, src); err != nil {
+		return fmt.Errorf("writing file %s: %w", hdr.Name, err)
 	}
 	return nil
 }

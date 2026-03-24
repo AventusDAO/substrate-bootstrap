@@ -4,11 +4,44 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
+
+// safeMarkerPath constrains marker files to the system temp dir so paths from the environment
+// cannot point at arbitrary filesystem locations (test helper, not production).
+func safeMarkerPath(envKey, defaultName string) (string, error) {
+	raw := strings.TrimSpace(os.Getenv(envKey))
+	var candidate string
+	switch {
+	case raw == "":
+		candidate = filepath.Join(os.TempDir(), defaultName)
+	case filepath.IsAbs(raw):
+		candidate = filepath.Clean(raw)
+	default:
+		candidate = filepath.Join(os.TempDir(), filepath.Clean(raw))
+	}
+
+	abs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", fmt.Errorf("marker path: %w", err)
+	}
+	tmpRoot, err := filepath.Abs(os.TempDir())
+	if err != nil {
+		return "", fmt.Errorf("temp dir: %w", err)
+	}
+	rel, err := filepath.Rel(tmpRoot, abs)
+	if err != nil {
+		return "", fmt.Errorf("marker path must be under temp directory")
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("marker path escapes temp directory")
+	}
+	return abs, nil
+}
 
 func main() {
 	fmt.Fprintf(os.Stdout, "MOCK_NODE_ARGS=%s\n", strings.Join(os.Args[1:], " "))
@@ -29,12 +62,13 @@ func main() {
 		fmt.Fprintln(os.Stdout, "MOCK_NODE_SIGNAL_RECEIVED")
 		os.Exit(0)
 	case "crash_then_ok":
-		marker := os.Getenv("MOCK_NODE_MARKER")
-		if marker == "" {
-			marker = "/tmp/mock_node_marker"
+		marker, err := safeMarkerPath("MOCK_NODE_MARKER", "mock_node_marker")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
 		}
 		if _, err := os.Stat(marker); os.IsNotExist(err) {
-			_ = os.WriteFile(marker, []byte("1"), 0o644)
+			_ = os.WriteFile(marker, []byte("1"), 0o600)
 			fmt.Fprintln(os.Stdout, "MOCK_NODE_CRASH")
 			os.Exit(1)
 		}
@@ -80,12 +114,13 @@ func main() {
 		os.Exit(1)
 	case "crash_after_then_ok":
 		duration := parseDurationEnv("MOCK_NODE_DURATION", 500*time.Millisecond)
-		marker := os.Getenv("MOCK_NODE_MARKER")
-		if marker == "" {
-			marker = "/tmp/mock_node_crash_after_marker"
+		marker, err := safeMarkerPath("MOCK_NODE_MARKER", "mock_node_crash_after_marker")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
 		}
 		if _, err := os.Stat(marker); os.IsNotExist(err) {
-			_ = os.WriteFile(marker, []byte("1"), 0o644)
+			_ = os.WriteFile(marker, []byte("1"), 0o600)
 			fmt.Fprintln(os.Stdout, "MOCK_NODE_STARTED_WILL_CRASH")
 			time.Sleep(duration)
 			fmt.Fprintln(os.Stdout, "MOCK_NODE_CRASH_AFTER_RUN")

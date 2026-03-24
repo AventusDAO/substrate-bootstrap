@@ -193,7 +193,7 @@ func logBootnodeWarnings(cfg *config.Config, logger *zap.Logger) {
 func checkDataDirectory(basePath string) error {
 	info, err := os.Stat(basePath)
 	if os.IsNotExist(err) {
-		if mkErr := os.MkdirAll(basePath, 0o755); mkErr != nil {
+		if mkErr := os.MkdirAll(basePath, 0o750); mkErr != nil {
 			return fmt.Errorf("cannot create data directory %s: %w", basePath, mkErr)
 		}
 		return nil
@@ -206,7 +206,7 @@ func checkDataDirectory(basePath string) error {
 	}
 
 	testFile := filepath.Join(basePath, ".write_test")
-	if err := os.WriteFile(testFile, []byte("ok"), 0o644); err != nil {
+	if err := os.WriteFile(testFile, []byte("ok"), 0o600); err != nil {
 		return fmt.Errorf("data directory %s is not writable: %w", basePath, err)
 	}
 	_ = os.Remove(testFile)
