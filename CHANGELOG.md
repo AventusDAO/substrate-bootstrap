@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.0...v1.4.1) (2026-03-24)
+
+
+### Miscellaneous
+
+* align Go module path with AventusDAO repository ([#13](https://github.com/AventusDAO/substrate-bootstrap/issues/13)) ([4aaddfa](https://github.com/AventusDAO/substrate-bootstrap/commit/4aaddfa9c76534eabd845a8a9040fd737e718e61))
+
 ## [1.4.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.3.1...v1.4.0) (2026-03-24)
 
 
