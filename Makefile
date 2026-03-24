@@ -27,7 +27,7 @@ build:
 
 all: lint test coverage integration build
 
-# Full module scan (including tests/e2e mock_node); keep helpers gosec-clean.
+# Full module scan (including tests/e2e mock_node); run via `make security` / CI security job.
 security:
 	go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -exclude-generated ./...
 

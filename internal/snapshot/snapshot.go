@@ -118,9 +118,6 @@ const (
 	chainspecDownloadTimeout = 5 * time.Minute
 	// maxChainspecSizeBytes prevents a misconfigured or malicious URL from filling the data volume.
 	maxChainspecSizeBytes = 100 * 1024 * 1024 // 100 MiB
-	// maxTarUnknownSizeBytes caps payload read only when the tar header omits Size (negative).
-	// Entries with hdr.Size >= 0 use that value directly, so multi-terabyte DB snapshots are supported.
-	maxTarUnknownSizeBytes = 16 << 40 // 16 TiB
 )
 
 // DownloadChainspec fetches a chainspec JSON from url and writes to destPath.
@@ -434,11 +431,10 @@ func extractTarSecure(destPath string, r io.Reader) error {
 
 func tarEntryPerm(hdr *tar.Header) os.FileMode {
 	const mask int64 = 0o777
-	v := hdr.Mode & mask
-	if v < 0 || v > mask {
+	if hdr.Mode < 0 {
 		return 0o644
 	}
-	return os.FileMode(uint32(v))
+	return os.FileMode(uint32(hdr.Mode & mask))
 }
 
 func extractTarRegularFile(target string, tr *tar.Reader, hdr *tar.Header) error {
@@ -450,12 +446,7 @@ func extractTarRegularFile(target string, tr *tar.Reader, hdr *tar.Header) error
 	}
 	defer func() { _ = f.Close() }()
 
-	var src io.Reader
-	if hdr.Size >= 0 {
-		src = io.LimitReader(tr, hdr.Size)
-	} else {
-		src = io.LimitReader(tr, maxTarUnknownSizeBytes)
-	}
+	src := io.LimitReader(tr, hdr.Size)
 	if _, err := io.Copy(f, src); err != nil {
 		return fmt.Errorf("writing file %s: %w", hdr.Name, err)
 	}

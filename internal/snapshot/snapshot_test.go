@@ -406,6 +406,28 @@ func TestExtractTarSecure_RejectsAbsolutePath(t *testing.T) {
 	assert.Contains(t, err.Error(), "absolute path")
 }
 
+func TestTarEntryPerm(t *testing.T) {
+	tests := []struct {
+		name string
+		mode int64
+		want os.FileMode
+	}{
+		{"zero", 0, 0},
+		{"perm_only_644", 0o644, 0o644},
+		{"perm_only_755", 0o755, 0o755},
+		{"type_bits_masked", 0o100644, 0o644},
+		{"extra_high_bits_masked", (1 << 33) | 0o750, 0o750},
+		{"negative_defaults_644", -1, 0o644},
+		{"negative_non_max_defaults_644", -100, 0o644},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tarEntryPerm(&tar.Header{Mode: tt.mode})
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestDirHasData(t *testing.T) {
 	t.Run("nonexistent", func(t *testing.T) {
 		has, err := dirHasData("/nonexistent/path")
