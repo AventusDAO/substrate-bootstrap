@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.1...v1.4.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* add gosec to CI and resolve security scanner findings ([#15](https://github.com/AventusDAO/substrate-bootstrap/issues/15)) ([8fd189c](https://github.com/AventusDAO/substrate-bootstrap/commit/8fd189c4f5de6ea7e19fe746de963d3343eb63fe))
+
 ## [1.4.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.0...v1.4.1) (2026-03-24)
 
 
