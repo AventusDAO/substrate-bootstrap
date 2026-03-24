@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.3.1...v1.4.0) (2026-03-24)
+
+
+### Features
+
+* **config:** add chain_data with chain_id and database for DB/snapsh… ([#11](https://github.com/AventusDAO/substrate-bootstrap/issues/11)) ([54c641a](https://github.com/AventusDAO/substrate-bootstrap/commit/54c641ae93127be1698f4cfb3e1feeff4933152a))
+
 ## [1.3.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.3.0...v1.3.1) (2026-03-23)
 
 
