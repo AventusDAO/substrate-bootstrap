@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +17,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes:
     - /dns/boot.example.io/tcp/40333/p2p/12D3KooW
 
@@ -33,6 +36,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  chain_data:
+    chain_id: test_parachain
   port: 41333
   blocks_pruning: "1000"
   state_pruning: "1000"
@@ -65,6 +70,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/parachain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes:
     - /dns/boot.example.io/tcp/40333/p2p/12D3KooW
   extra_args:
@@ -102,6 +109,10 @@ func TestDefaultConfig(t *testing.T) {
 	assert.False(t, d.Keystore.CleanupOnStop)
 	assert.Equal(t, "info", d.Logging.Level)
 	assert.Equal(t, "json", d.Logging.Format)
+	assert.Equal(t, "rocksdb", d.Chain.ChainData.Database)
+	assert.Empty(t, d.Chain.ChainData.ChainID)
+	assert.Equal(t, "rocksdb", d.RelayChain.ChainData.Database)
+	assert.Equal(t, "polkadot", d.RelayChain.ChainData.ChainID)
 }
 
 func TestFixedPaths(t *testing.T) {
@@ -111,8 +122,11 @@ func TestFixedPaths(t *testing.T) {
 	assert.Equal(t, "/data/relaychain-data", RelayChainDataPath())
 	assert.Equal(t, "/data/chain-data/chainspec.json", ChainspecPath())
 	assert.Equal(t, "/data/relaychain-data/chainspec.json", RelayChainspecPath())
-	assert.Equal(t, "/data/chain-data/chains/avn_staging_dev_testnet/paritydb", ChainSnapshotPath("avn_staging_dev_testnet"))
-	assert.Equal(t, "/data/relaychain-data/chains/paseo/paritydb", RelayChainSnapshotPath("paseo"))
+	assert.Equal(t, "paritydb", DatabaseStorageDir("paritydb"))
+	assert.Equal(t, "db", DatabaseStorageDir("rocksdb"))
+	assert.Equal(t, "/data/chain-data/chains/avn_staging_dev_testnet/paritydb", ChainDBDataPath("avn_staging_dev_testnet", "paritydb"))
+	assert.Equal(t, "/data/chain-data/chains/foo/db", ChainDBDataPath("foo", "rocksdb"))
+	assert.Equal(t, "/data/relaychain-data/chains/paseo/paritydb", RelayChainDBDataPath("paseo", "paritydb"))
 	assert.Equal(t, "/data/keystore", KeystorePath())
 	assert.Equal(t, "/data/bootstrap_state.json", BootstrapStatePath())
 }
@@ -133,6 +147,10 @@ func TestLoad_MinimalRPC_UsesDefaults(t *testing.T) {
 	assert.Equal(t, "/usr/bin/node", cfg.Node.Binary, "should use default binary")
 	assert.Equal(t, "test-node", cfg.Node.Name)
 	assert.False(t, cfg.Node.EnableKeystore, "should use default enable_keystore")
+
+	assert.Equal(t, "test_parachain", cfg.Chain.ChainData.ChainID)
+	assert.Equal(t, "rocksdb", cfg.Chain.ChainData.Database)
+	assert.Equal(t, "polkadot", cfg.RelayChain.ChainData.ChainID)
 
 	assert.Equal(t, 40333, cfg.Chain.Port, "should use default chain port")
 	assert.Equal(t, "archive-canonical", cfg.Chain.BlocksPruning, "should use default blocks_pruning")
@@ -189,6 +207,8 @@ func TestLoad_MissingName(t *testing.T) {
 node:
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -205,6 +225,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
 relay_chain:
   chain_spec: /opt/relay.json
 `
@@ -221,6 +243,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   override_bootnodes:
     - /dns/override/tcp/40333/p2p/12D3KooW
 relay_chain:
@@ -239,6 +263,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   port: 99999
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
@@ -270,6 +296,8 @@ node:
   name: "${TEST_NODE_NAME}"
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -286,6 +314,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -304,6 +334,7 @@ func TestValidate_PrometheusInvalidPort(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Node.Name = "n"
 	cfg.Chain.ChainSpec = "/spec"
+	cfg.Chain.ChainData.ChainID = "test_chain"
 	cfg.Chain.Bootnodes = []string{"a"}
 	cfg.RelayChain.ChainSpec = "/relay"
 	cfg.RelayChain.Bootnodes = []string{"b"}
@@ -323,6 +354,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -342,6 +375,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -377,6 +412,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: ""
@@ -393,6 +430,8 @@ node:
   name: test
 chain:
   chainspec_url: https://example.com/chainspec.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -410,6 +449,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chainspec_url: https://example.com/relay-chainspec.json
@@ -427,6 +468,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -443,6 +486,8 @@ node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -454,47 +499,35 @@ relay_chain:
 	assert.Contains(t, err.Error(), "relay_chain.port must be 1-65535")
 }
 
-func TestLoad_RelaySnapshotURLRequiresRelayChainPath(t *testing.T) {
+func TestLoad_RelaySnapshotURLWithChainID(t *testing.T) {
 	yaml := `
 node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
   bootnodes: ["/dns/b/tcp/1/p2p/y"]
+  chain_data:
+    chain_id: paseo
   snapshot_url: https://snapshots.polkadot.io/paseo-muse-paritydb-archive/20260316-011637
-`
-	_, err := Load(writeConfig(t, yaml))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "relay_chain.relay_chain_path is required")
-}
-
-func TestLoad_RelaySnapshotURLWithRelayChainPath(t *testing.T) {
-	yaml := `
-node:
-  name: test
-chain:
-  chain_spec: /opt/chain.json
-  bootnodes: ["/dns/a/tcp/1/p2p/x"]
-relay_chain:
-  chain_spec: /opt/relay.json
-  bootnodes: ["/dns/b/tcp/1/p2p/y"]
-  snapshot_url: https://snapshots.polkadot.io/paseo-muse-paritydb-archive/20260316-011637
-  relay_chain_path: paseo
 `
 	cfg, err := Load(writeConfig(t, yaml))
 	require.NoError(t, err)
-	assert.Equal(t, "paseo", cfg.RelayChain.RelayChainPath)
+	assert.Equal(t, "paseo", cfg.RelayChain.ChainData.ChainID)
 }
 
-func TestLoad_ChainSnapshotURLRequiresSnapshotChainPath(t *testing.T) {
+func TestLoad_ChainSnapshotURLRequiresChainID(t *testing.T) {
 	yaml := `
 node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    database: rocksdb
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
   snapshot_url: https://snapshots.polkadot.io/paseo-asset-hub-paritydb-prune/20260316-014747
 relay_chain:
@@ -503,33 +536,36 @@ relay_chain:
 `
 	_, err := Load(writeConfig(t, yaml))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "chain.snapshot_chain_path is required")
+	assert.Contains(t, err.Error(), "chain.chain_data.chain_id is required")
 }
 
-func TestLoad_ChainSnapshotURLWithSnapshotChainPath(t *testing.T) {
+func TestLoad_ChainSnapshotURLWithChainID(t *testing.T) {
 	yaml := `
 node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: paseo_asset_hub
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
   snapshot_url: https://snapshots.polkadot.io/paseo-asset-hub-paritydb-prune/20260316-014747
-  snapshot_chain_path: paseo_asset_hub
 relay_chain:
   chain_spec: /opt/relay.json
   bootnodes: ["/dns/b/tcp/1/p2p/y"]
 `
 	cfg, err := Load(writeConfig(t, yaml))
 	require.NoError(t, err)
-	assert.Equal(t, "paseo_asset_hub", cfg.Chain.SnapshotChainPath)
+	assert.Equal(t, "paseo_asset_hub", cfg.Chain.ChainData.ChainID)
 }
 
-func TestLoad_ChainSnapshotTarURLDoesNotRequireSnapshotChainPath(t *testing.T) {
+func TestLoad_ChainSnapshotTarURL(t *testing.T) {
 	yaml := `
 node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
   snapshot_url: https://example.com/parachain-snapshot.tar.gz
 relay_chain:
@@ -538,15 +574,17 @@ relay_chain:
 `
 	cfg, err := Load(writeConfig(t, yaml))
 	require.NoError(t, err)
-	assert.Empty(t, cfg.Chain.SnapshotChainPath)
+	assert.Equal(t, "test_parachain", cfg.Chain.ChainData.ChainID)
 }
 
-func TestLoad_RelaySnapshotTarURLDoesNotRequireRelayChainPath(t *testing.T) {
+func TestLoad_RelaySnapshotTarURL(t *testing.T) {
 	yaml := `
 node:
   name: test
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -555,7 +593,7 @@ relay_chain:
 `
 	cfg, err := Load(writeConfig(t, yaml))
 	require.NoError(t, err)
-	assert.Empty(t, cfg.RelayChain.RelayChainPath)
+	assert.Equal(t, "polkadot", cfg.RelayChain.ChainData.ChainID)
 }
 
 // --- Solochain mode tests ---
@@ -567,6 +605,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/mainnet.json
+  chain_data:
+    chain_id: solo_mainnet
   blocks_pruning: archive-canonical
   state_pruning: archive-canonical
   bootnodes:
@@ -590,6 +630,8 @@ node:
   mode: solochain
 chain:
   chain_spec: /opt/chainspecs/mainnet.json
+  chain_data:
+    chain_id: solo_mainnet
   bootnodes:
     - /dns/boot/tcp/40333/p2p/12D3KooW
 `
@@ -605,6 +647,8 @@ node:
   mode: parachain
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: ""
@@ -622,6 +666,8 @@ node:
   mode: validator
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   bootnodes: ["/dns/a/tcp/1/p2p/x"]
 relay_chain:
   chain_spec: /opt/relay.json
@@ -639,4 +685,107 @@ func TestIsSolochain(t *testing.T) {
 	assert.True(t, cfg.IsSolochain())
 	cfg.Node.Mode = "SOLOCHAIN"
 	assert.True(t, cfg.IsSolochain())
+}
+
+func TestLoad_InvalidChainDatabase(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+    database: badger
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	_, err := Load(writeConfig(t, yaml))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "chain.chain_data.database must be")
+}
+
+func TestLoad_InvalidRelayChainDatabase(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  chain_data:
+    chain_id: test_relay
+    database: badger
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	_, err := Load(writeConfig(t, yaml))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "relay_chain.chain_data.database must be")
+}
+
+func TestLoad_ChainIDTrimmed(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: "  test_parachain  "
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.Equal(t, "test_parachain", cfg.Chain.ChainData.ChainID)
+	assert.Equal(t, "polkadot", cfg.RelayChain.ChainData.ChainID)
+}
+
+func TestLoad_InvalidChainIDPathTraversal(t *testing.T) {
+	base := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: %s
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	for _, id := range []string{"../x", "../../relaychain-data", "..", "a/b"} {
+		t.Run("chain_"+id, func(t *testing.T) {
+			_, err := Load(writeConfig(t, fmt.Sprintf(base, id)))
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "chain.chain_data.chain_id must be a single directory name")
+		})
+	}
+
+	relayBase := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+relay_chain:
+  chain_spec: /opt/relay.json
+  chain_data:
+    chain_id: %s
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	for _, id := range []string{"../x", "../../chain-data", "..", "a\\b"} {
+		t.Run("relay_"+id, func(t *testing.T) {
+			_, err := Load(writeConfig(t, fmt.Sprintf(relayBase, id)))
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "relay_chain.chain_data.chain_id must be a single directory name")
+		})
+	}
 }

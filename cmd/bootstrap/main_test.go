@@ -79,6 +79,10 @@ func TestRun_RPCCleanExit(t *testing.T) {
 			Name:   "test-rpc",
 		},
 		Chain: config.ChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "test_parachain",
+			},
 			ChainSpec:     "/opt/chain.json",
 			Port:          40333,
 			BlocksPruning: "archive-canonical",
@@ -86,6 +90,10 @@ func TestRun_RPCCleanExit(t *testing.T) {
 			Bootnodes:     []string{"/dns/a/tcp/1/p2p/x"},
 		},
 		RelayChain: config.RelayChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},
@@ -110,6 +118,10 @@ func TestRun_ListenerCleanExit(t *testing.T) {
 			EnableKeystore: true,
 		},
 		Chain: config.ChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "test_parachain",
+			},
 			ChainSpec:     "/opt/chain.json",
 			Port:          40333,
 			BlocksPruning: "archive-canonical",
@@ -117,6 +129,10 @@ func TestRun_ListenerCleanExit(t *testing.T) {
 			Bootnodes:     []string{"/dns/a/tcp/1/p2p/x"},
 		},
 		RelayChain: config.RelayChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},
@@ -143,11 +159,19 @@ func TestRun_BootstrapFailure(t *testing.T) {
 			Name:   "test",
 		},
 		Chain: config.ChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "test_parachain",
+			},
 			ChainSpec: "/opt/chain.json",
 			Port:      40333,
 			Bootnodes: []string{"a"},
 		},
 		RelayChain: config.RelayChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
 			Bootnodes: []string{"b"},

@@ -95,10 +95,10 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 	var chainSnap, relaySnap *snapshot.SyncResult
 
 	if cfg.Chain.SnapshotURL != "" {
-		chainDest := config.ChainDataPath()
-		if cfg.Chain.SnapshotChainPath != "" {
-			chainDest = config.ChainSnapshotPath(cfg.Chain.SnapshotChainPath)
-		}
+		chainDest := config.ChainDBDataPath(
+			strings.TrimSpace(cfg.Chain.ChainData.ChainID),
+			cfg.Chain.ChainData.Database,
+		)
 		result, err := snapDl.SyncIfNeeded(ctx, cfg.Chain.SnapshotURL, chainDest)
 		if err != nil {
 			return fmt.Errorf("chain snapshot: %w", err)
@@ -106,10 +106,10 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		chainSnap = result
 	}
 	if !cfg.IsSolochain() && cfg.RelayChain.SnapshotURL != "" {
-		relayDest := config.RelayChainDataPath()
-		if cfg.RelayChain.RelayChainPath != "" {
-			relayDest = config.RelayChainSnapshotPath(cfg.RelayChain.RelayChainPath)
-		}
+		relayDest := config.RelayChainDBDataPath(
+			strings.TrimSpace(cfg.RelayChain.ChainData.ChainID),
+			cfg.RelayChain.ChainData.Database,
+		)
 		result, err := snapDl.SyncIfNeeded(ctx, cfg.RelayChain.SnapshotURL, relayDest)
 		if err != nil {
 			return fmt.Errorf("relay chain snapshot: %w", err)

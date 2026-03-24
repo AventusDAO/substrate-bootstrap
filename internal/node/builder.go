@@ -28,6 +28,7 @@ func buildChainArgs(cfg *config.Config, publicIP string) []string {
 		"--name", cfg.Node.Name,
 		"--base-path", config.ChainDataPath(),
 		fmt.Sprintf("--chain=%s", cfg.Chain.ChainSpec),
+		fmt.Sprintf("--database=%s", cfg.Chain.ChainData.Database),
 		"--no-mdns",
 	)
 
@@ -57,6 +58,7 @@ func buildRelayChainArgs(cfg *config.Config) []string {
 	args = append(args,
 		"--name", cfg.Node.Name,
 		"--base-path", config.RelayChainDataPath(),
+		fmt.Sprintf("--database=%s", cfg.RelayChain.ChainData.Database),
 	)
 	args = append(args, telemetryArgs(cfg.Telemetry.URLs)...)
 

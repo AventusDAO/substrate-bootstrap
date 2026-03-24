@@ -10,6 +10,8 @@ node:
 
 chain:
   chain_spec: /opt/chainspecs/mainnet.json
+  chain_data:
+    chain_id: my_solochain
   blocks_pruning: archive-canonical
   state_pruning: archive-canonical
   bootnodes:

@@ -115,6 +115,8 @@ func (e *testEnv) writeConfig(role string, bootstrapCmds []string) string {
 
 chain:
   chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
   port: 40333
   blocks_pruning: archive-canonical
   state_pruning: "256"

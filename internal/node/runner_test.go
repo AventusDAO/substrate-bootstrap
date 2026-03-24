@@ -52,6 +52,10 @@ func runnerConfig(binary string) *config.Config {
 			Name:   "test-node",
 		},
 		Chain: config.ChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "test_parachain",
+			},
 			ChainSpec:     "/opt/chain.json",
 			Port:          40333,
 			BlocksPruning: "archive-canonical",
@@ -59,6 +63,10 @@ func runnerConfig(binary string) *config.Config {
 			Bootnodes:     []string{"/dns/a/tcp/1/p2p/x"},
 		},
 		RelayChain: config.RelayChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			ChainSpec: "/opt/relay.json",
 			Port:      30333,
 			Bootnodes: []string{"/dns/b/tcp/1/p2p/y"},

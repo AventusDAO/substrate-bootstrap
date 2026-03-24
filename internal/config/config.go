@@ -29,16 +29,24 @@ func RelayChainDataPath() string { return filepath.Join(DataDir(), "relaychain-d
 func ChainspecPath() string      { return filepath.Join(ChainDataPath(), "chainspec.json") }
 func RelayChainspecPath() string { return filepath.Join(RelayChainDataPath(), "chainspec.json") }
 
-// ChainSnapshotPath returns the paritydb path for chain (parachain/solochain) snapshots.
-// Matches node layout: base-path/chains/<chain_path>/paritydb/
-func ChainSnapshotPath(chainPath string) string {
-	return filepath.Join(ChainDataPath(), "chains", chainPath, "paritydb")
+// DatabaseStorageDir returns the per-chain database directory name under chains/<chain_id>/.
+// Matches Parity helm node.databasePath: paritydb -> "paritydb", else "db" (rocksdb).
+func DatabaseStorageDir(database string) string {
+	if strings.EqualFold(strings.TrimSpace(database), "paritydb") {
+		return "paritydb"
+	}
+	return "db"
 }
 
-// RelayChainSnapshotPath returns the paritydb path for relay chain snapshots.
-// Matches node layout: base-path/chains/<chain_path>/paritydb/
-func RelayChainSnapshotPath(chainPath string) string {
-	return filepath.Join(RelayChainDataPath(), "chains", chainPath, "paritydb")
+// ChainDBDataPath returns the chain snapshot / DB path:
+// base-path/chains/<chainID>/<storageDir>/
+func ChainDBDataPath(chainID, database string) string {
+	return filepath.Join(ChainDataPath(), "chains", chainID, DatabaseStorageDir(database))
+}
+
+// RelayChainDBDataPath returns the relay chain snapshot / DB path.
+func RelayChainDBDataPath(chainID, database string) string {
+	return filepath.Join(RelayChainDataPath(), "chains", chainID, DatabaseStorageDir(database))
 }
 
 func KeystorePath() string       { return filepath.Join(DataDir(), "keystore") }
@@ -62,31 +70,37 @@ type NodeConfig struct {
 	EnableKeystore bool   `yaml:"enable_keystore"`
 }
 
+// ChainDataConfig mirrors Parity node chart chainData (database backend + chain id directory segment).
+type ChainDataConfig struct {
+	Database string `yaml:"database"` // rocksdb (default) or paritydb
+	ChainID  string `yaml:"chain_id"` // Substrate chains/<chain_id>/ segment; not a full path
+}
+
 // ChainConfig holds chain-specific settings.
 // In parachain mode these are the parachain args (before the -- separator).
 // In solochain mode this is the main (and only) chain config.
 type ChainConfig struct {
-	ChainSpec              string   `yaml:"chain_spec"`
-	ChainspecURL           string   `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to ChainspecPath()
-	ForceDownloadChainspec bool     `yaml:"force_download_chainspec"` // overwrite existing file
-	Port                   int      `yaml:"port"`
-	BlocksPruning          string   `yaml:"blocks_pruning"`
-	StatePruning           string   `yaml:"state_pruning"`
-	Bootnodes              []string `yaml:"bootnodes"`
-	OverrideBootnodes      []string `yaml:"override_bootnodes"`
-	ExtraArgs              []string `yaml:"extra_args"`
-	SnapshotURL            string   `yaml:"snapshot_url"`
-	SnapshotChainPath      string   `yaml:"snapshot_chain_path"` // e.g. "avn_staging_dev_testnet"; required when snapshot_url is Polkadot-style
+	ChainData              ChainDataConfig `yaml:"chain_data"`
+	ChainSpec              string          `yaml:"chain_spec"`
+	ChainspecURL           string          `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to ChainspecPath()
+	ForceDownloadChainspec bool            `yaml:"force_download_chainspec"` // overwrite existing file
+	Port                   int             `yaml:"port"`
+	BlocksPruning          string          `yaml:"blocks_pruning"`
+	StatePruning           string          `yaml:"state_pruning"`
+	Bootnodes              []string        `yaml:"bootnodes"`
+	OverrideBootnodes      []string        `yaml:"override_bootnodes"`
+	ExtraArgs              []string        `yaml:"extra_args"`
+	SnapshotURL            string          `yaml:"snapshot_url"`
 }
 
 type RelayChainConfig struct {
-	ChainSpec              string   `yaml:"chain_spec"`
-	ChainspecURL           string   `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to RelayChainspecPath()
-	ForceDownloadChainspec bool     `yaml:"force_download_chainspec"` // overwrite existing file
-	Port                   int      `yaml:"port"`
-	Bootnodes              []string `yaml:"bootnodes"`
-	SnapshotURL            string   `yaml:"snapshot_url"`
-	RelayChainPath         string   `yaml:"relay_chain_path"` // e.g. "paseo" for Paseo; required when snapshot_url is set (rclone)
+	ChainData              ChainDataConfig `yaml:"chain_data"`
+	ChainSpec              string          `yaml:"chain_spec"`
+	ChainspecURL           string          `yaml:"chainspec_url"`            // when set, chain_spec is ignored; downloaded to RelayChainspecPath()
+	ForceDownloadChainspec bool            `yaml:"force_download_chainspec"` // overwrite existing file
+	Port                   int             `yaml:"port"`
+	Bootnodes              []string        `yaml:"bootnodes"`
+	SnapshotURL            string          `yaml:"snapshot_url"`
 }
 
 type PrometheusConfig struct {
@@ -118,11 +132,18 @@ func DefaultConfig() Config {
 			EnableKeystore: false,
 		},
 		Chain: ChainConfig{
+			ChainData: ChainDataConfig{
+				Database: "rocksdb",
+			},
 			Port:          40333,
 			BlocksPruning: "archive-canonical",
 			StatePruning:  "256",
 		},
 		RelayChain: RelayChainConfig{
+			ChainData: ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			Port: 30333,
 		},
 		Prometheus: PrometheusConfig{
@@ -152,11 +173,43 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("parsing config YAML: %w", err)
 	}
 
+	cfg.applyChainDataDefaults()
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validating config: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// applyChainDataDefaults fills chain_data fields that YAML omitted (nested struct zero-value wipes defaults).
+func (c *Config) applyChainDataDefaults() {
+	if strings.TrimSpace(c.Chain.ChainData.Database) == "" {
+		c.Chain.ChainData.Database = "rocksdb"
+	}
+	c.Chain.ChainData.Database = strings.ToLower(strings.TrimSpace(c.Chain.ChainData.Database))
+
+	if strings.TrimSpace(c.RelayChain.ChainData.Database) == "" {
+		c.RelayChain.ChainData.Database = "rocksdb"
+	}
+	c.RelayChain.ChainData.Database = strings.ToLower(strings.TrimSpace(c.RelayChain.ChainData.Database))
+
+	c.Chain.ChainData.ChainID = strings.TrimSpace(c.Chain.ChainData.ChainID)
+	c.RelayChain.ChainData.ChainID = strings.TrimSpace(c.RelayChain.ChainData.ChainID)
+	if c.RelayChain.ChainData.ChainID == "" {
+		c.RelayChain.ChainData.ChainID = "polkadot"
+	}
+}
+
+// isSafeChainDirSegment reports whether id is safe to use as a single path segment under chains/<chain_id>/.
+func isSafeChainDirSegment(id string) bool {
+	if id == "" || id == "." || id == ".." {
+		return false
+	}
+	if strings.ContainsAny(id, `/\`) {
+		return false
+	}
+	return filepath.Clean(id) == id
 }
 
 func expandEnvVars(input string) string {
@@ -171,16 +224,6 @@ func expandEnvVars(input string) string {
 
 func (c *Config) IsSolochain() bool {
 	return strings.ToLower(c.Node.Mode) == "solochain"
-}
-
-func isTarURL(url string) bool {
-	lower := strings.ToLower(url)
-	for _, ext := range []string{".tar.gz", ".tgz", ".tar.lz4", ".tar.zst", ".tar.zstd", ".tar.bz2", ".tar.xz", ".tar"} {
-		if strings.HasSuffix(lower, ext) {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *Config) Validate() error {
@@ -202,8 +245,16 @@ func (c *Config) Validate() error {
 		errs = append(errs, "chain.chain_spec or chain.chainspec_url is required")
 	}
 
-	if c.Chain.SnapshotURL != "" && !isTarURL(c.Chain.SnapshotURL) && c.Chain.SnapshotChainPath == "" {
-		errs = append(errs, "chain.snapshot_chain_path is required when chain.snapshot_url is a Polkadot-style URL (e.g. snapshots.polkadot.io)")
+	if c.Chain.ChainData.ChainID == "" {
+		errs = append(errs, "chain.chain_data.chain_id is required (Substrate chains/<chain_id>/ directory name, not a full path)")
+	} else if !isSafeChainDirSegment(c.Chain.ChainData.ChainID) {
+		errs = append(errs, "chain.chain_data.chain_id must be a single directory name (no path separators or ..)")
+	}
+
+	switch c.Chain.ChainData.Database {
+	case "rocksdb", "paritydb":
+	default:
+		errs = append(errs, fmt.Sprintf("chain.chain_data.database must be \"rocksdb\" or \"paritydb\", got %q", c.Chain.ChainData.Database))
 	}
 
 	if c.Chain.Port <= 0 || c.Chain.Port > 65535 {
@@ -217,8 +268,15 @@ func (c *Config) Validate() error {
 		if c.RelayChain.Port <= 0 || c.RelayChain.Port > 65535 {
 			errs = append(errs, fmt.Sprintf("relay_chain.port must be 1-65535, got %d", c.RelayChain.Port))
 		}
-		if c.RelayChain.SnapshotURL != "" && !isTarURL(c.RelayChain.SnapshotURL) && c.RelayChain.RelayChainPath == "" {
-			errs = append(errs, "relay_chain.relay_chain_path is required when relay_chain.snapshot_url is a Polkadot-style URL (e.g. snapshots.polkadot.io)")
+		if c.RelayChain.ChainData.ChainID == "" {
+			errs = append(errs, "relay_chain.chain_data.chain_id is required (Substrate chains/<chain_id>/ directory name, not a full path)")
+		} else if !isSafeChainDirSegment(c.RelayChain.ChainData.ChainID) {
+			errs = append(errs, "relay_chain.chain_data.chain_id must be a single directory name (no path separators or ..)")
+		}
+		switch c.RelayChain.ChainData.Database {
+		case "rocksdb", "paritydb":
+		default:
+			errs = append(errs, fmt.Sprintf("relay_chain.chain_data.database must be \"rocksdb\" or \"paritydb\", got %q", c.RelayChain.ChainData.Database))
 		}
 	}
 

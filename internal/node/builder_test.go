@@ -15,6 +15,10 @@ func rpcConfig() *config.Config {
 			Name:   "rpc-node-1",
 		},
 		Chain: config.ChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "test_parachain",
+			},
 			ChainSpec:     "/opt/chainspecs/chain.json",
 			Port:          40333,
 			BlocksPruning: "archive-canonical",
@@ -23,6 +27,10 @@ func rpcConfig() *config.Config {
 			ExtraArgs:     []string{"--db-cache=2048", "--rpc-port=9944", "--rpc-external", "--rpc-cors=all"},
 		},
 		RelayChain: config.RelayChainConfig{
+			ChainData: config.ChainDataConfig{
+				Database: "rocksdb",
+				ChainID:  "polkadot",
+			},
 			ChainSpec: "/opt/chainspecs/polkadot.json",
 			Port:      30333,
 			Bootnodes: []string{"/dns/relay-boot.parity.io/tcp/30333/p2p/12D3KooWR"},
@@ -61,6 +69,7 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 		"--name", "rpc-node-1",
 		"--base-path", "/data/chain-data",
 		"--chain=/opt/chainspecs/chain.json",
+		"--database=rocksdb",
 		"--no-mdns",
 		"--blocks-pruning=archive-canonical",
 		"--state-pruning=256",
@@ -76,6 +85,7 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 		"--",
 		"--name", "rpc-node-1",
 		"--base-path", "/data/relaychain-data",
+		"--database=rocksdb",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
 		"--chain=/opt/chainspecs/polkadot.json",
 		"--port", "30333",
@@ -93,6 +103,7 @@ func TestBuildArgs_ListenerRole(t *testing.T) {
 		"--name", "listener-node-1",
 		"--base-path", "/data/chain-data",
 		"--chain=/opt/chainspecs/chain.json",
+		"--database=rocksdb",
 		"--no-mdns",
 		"--blocks-pruning=archive-canonical",
 		"--state-pruning=256",
@@ -106,6 +117,7 @@ func TestBuildArgs_ListenerRole(t *testing.T) {
 		"--",
 		"--name", "listener-node-1",
 		"--base-path", "/data/relaychain-data",
+		"--database=rocksdb",
 		"--telemetry-url", "wss://telemetry.example.io/submit 0",
 		"--chain=/opt/chainspecs/polkadot.json",
 		"--port", "30333",
