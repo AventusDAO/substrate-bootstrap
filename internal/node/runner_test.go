@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
 )
 
 func TestBackoffDuration(t *testing.T) {

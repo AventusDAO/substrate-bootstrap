@@ -13,8 +13,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
-	"github.com/nicce/substrate-bootstrap/internal/snapshot"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/snapshot"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
 )
 
 func rpcConfig() *config.Config {

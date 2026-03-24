@@ -1,4 +1,4 @@
-module github.com/nicce/substrate-bootstrap
+module github.com/AventusDAO/substrate-bootstrap
 
 go 1.25.3
 

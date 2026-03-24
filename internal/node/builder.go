@@ -3,7 +3,7 @@ package node
 import (
 	"fmt"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
 )
 
 // BuildArgs constructs the full CLI arguments for the node binary.

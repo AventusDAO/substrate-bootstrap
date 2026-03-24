@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
 )
 
 type Runner struct {

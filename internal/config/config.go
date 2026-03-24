@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/nicce/substrate-bootstrap/internal/logging"
+	"github.com/AventusDAO/substrate-bootstrap/internal/logging"
 )
 
 const defaultDataDir = "/data"
