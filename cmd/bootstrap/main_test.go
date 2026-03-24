@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/nicce/substrate-bootstrap/internal/config"
-	"github.com/nicce/substrate-bootstrap/internal/logging"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/logging"
 )
 
 func buildMockNode(t *testing.T) string {

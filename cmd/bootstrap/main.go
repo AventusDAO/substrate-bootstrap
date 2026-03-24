@@ -13,13 +13,13 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/nicce/substrate-bootstrap/internal/bootstrap"
-	"github.com/nicce/substrate-bootstrap/internal/config"
-	"github.com/nicce/substrate-bootstrap/internal/keystore"
-	"github.com/nicce/substrate-bootstrap/internal/logging"
-	"github.com/nicce/substrate-bootstrap/internal/node"
-	"github.com/nicce/substrate-bootstrap/internal/publicip"
-	"github.com/nicce/substrate-bootstrap/internal/snapshot"
+	"github.com/AventusDAO/substrate-bootstrap/internal/bootstrap"
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
+	"github.com/AventusDAO/substrate-bootstrap/internal/keystore"
+	"github.com/AventusDAO/substrate-bootstrap/internal/logging"
+	"github.com/AventusDAO/substrate-bootstrap/internal/node"
+	"github.com/AventusDAO/substrate-bootstrap/internal/publicip"
+	"github.com/AventusDAO/substrate-bootstrap/internal/snapshot"
 )
 
 var (
