@@ -99,7 +99,7 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 			strings.TrimSpace(cfg.Chain.ChainData.ChainID),
 			cfg.Chain.ChainData.Database,
 		)
-		result, err := snapDl.SyncIfNeeded(ctx, cfg.Chain.SnapshotURL, chainDest)
+		result, err := snapDl.SyncIfNeeded(ctx, cfg.Chain.SnapshotURL, chainDest, strings.TrimSpace(cfg.Chain.ChainData.ChainID))
 		if err != nil {
 			return fmt.Errorf("chain snapshot: %w", err)
 		}
@@ -110,7 +110,7 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 			strings.TrimSpace(cfg.RelayChain.ChainData.ChainID),
 			cfg.RelayChain.ChainData.Database,
 		)
-		result, err := snapDl.SyncIfNeeded(ctx, cfg.RelayChain.SnapshotURL, relayDest)
+		result, err := snapDl.SyncIfNeeded(ctx, cfg.RelayChain.SnapshotURL, relayDest, strings.TrimSpace(cfg.RelayChain.ChainData.ChainID))
 		if err != nil {
 			return fmt.Errorf("relay chain snapshot: %w", err)
 		}

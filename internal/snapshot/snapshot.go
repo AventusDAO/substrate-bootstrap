@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AventusDAO/substrate-bootstrap/internal/config"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 	"github.com/ulikunitz/xz"
@@ -68,7 +70,8 @@ type SyncResult struct {
 //   - All other URLs (e.g. Polkadot snapshots.polkadot.io) use rclone with a files.txt manifest.
 //
 // For Polkadot-style base URLs (no version suffix), fetches latest_version.meta.txt to resolve latest snapshot.
-func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath string) (*SyncResult, error) {
+// configChainID is the YAML chain_id; used for tar member path rewriting (may differ from the on-disk chains/ segment).
+func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath, configChainID string) (*SyncResult, error) {
 	if snapshotURL == "" {
 		return nil, nil
 	}
@@ -101,7 +104,7 @@ func (d *Downloader) SyncIfNeeded(ctx context.Context, snapshotURL, dataPath str
 
 	if isTarURL(resolvedURL) {
 		result.Method = "tar"
-		err = d.downloadAndExtractTar(ctx, resolvedURL, dataPath)
+		err = d.downloadAndExtractTar(ctx, resolvedURL, dataPath, configChainID)
 	} else {
 		result.Method = "rclone"
 		err = d.downloadWithRclone(ctx, resolvedURL, dataPath)
@@ -314,7 +317,7 @@ func (d *Downloader) downloadWithRclone(ctx context.Context, snapshotURL, destPa
 	return nil
 }
 
-func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath string) error {
+func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath, configChainID string) error {
 	d.logger.Info("streaming snapshot via tar",
 		zap.String("dest", destPath))
 
@@ -346,7 +349,7 @@ func (d *Downloader) downloadAndExtractTar(ctx context.Context, url, destPath st
 	}
 	defer decomp.Close()
 
-	if err := extractTarSecure(destPath, decomp); err != nil {
+	if err := extractTarSecure(destPath, decomp, configChainID); err != nil {
 		return fmt.Errorf("extracting snapshot: %w", err)
 	}
 
@@ -417,7 +420,87 @@ func newDecompressorMaybeCompressedTar(r io.Reader) (io.ReadCloser, error) {
 	return io.NopCloser(br), nil
 }
 
-func extractTarSecure(destPath string, r io.Reader) error {
+// mapTarEntryToDestRel strips a leading chains/<id>/<db|paritydb>/ when member paths mirror the
+// snapshot layout. destPath uses config.SubstrateChainsDirName; configChainID is the YAML chain_id
+// so hyphenated archive paths (chains/avn-paseo-v2/...) still match.
+func mapTarEntryToDestRel(archiveName, destPath, configChainID string) (rel string, mapped bool) {
+	storageDir := filepath.Base(destPath)
+	chainDir := filepath.Dir(destPath)
+	chainSeg := filepath.Base(chainDir)
+
+	norm := path.Clean(strings.ReplaceAll(archiveName, `\`, `/`))
+	if norm == "." || norm == "/" {
+		return archiveName, false
+	}
+
+	seen := make(map[string]struct{})
+	var candidates []string
+	add := func(s string) {
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		candidates = append(candidates, s)
+	}
+
+	add(path.Join("chains", chainSeg, storageDir))
+	if configChainID != "" {
+		add(path.Join("chains", configChainID, storageDir))
+		normalized := config.SubstrateChainsDirName(configChainID)
+		if normalized != configChainID {
+			add(path.Join("chains", normalized, storageDir))
+		}
+	}
+
+	for _, c := range candidates {
+		if norm == c {
+			return ".", true
+		}
+		prefix := c + "/"
+		if strings.HasPrefix(norm, prefix) {
+			return norm[len(prefix):], true
+		}
+	}
+	return archiveName, false
+}
+
+func normalizeMappedTarRel(rel string) string {
+	if rel == "." {
+		return "."
+	}
+	return filepath.FromSlash(path.Clean(rel))
+}
+
+func validateTarRelUnderDest(destPath, rel string) error {
+	if filepath.IsAbs(rel) {
+		return fmt.Errorf("rejecting absolute path in archive: %s", rel)
+	}
+	clean := filepath.Clean(rel)
+	if clean == "." {
+		return nil
+	}
+	target := filepath.Join(destPath, clean)
+	out, err := filepath.Rel(destPath, target)
+	if err != nil || strings.HasPrefix(out, "..") || out == ".." {
+		return fmt.Errorf("rejecting path outside destination: %s", rel)
+	}
+	return nil
+}
+
+func validateSymlinkTargetForRel(destPath, linkRel, linkname string) error {
+	if filepath.IsAbs(linkname) {
+		return fmt.Errorf("rejecting absolute symlink target: %s -> %s", linkRel, linkname)
+	}
+	linkDir := filepath.Dir(filepath.Join(destPath, linkRel))
+	resolved := filepath.Clean(filepath.Join(linkDir, linkname))
+	rel, err := filepath.Rel(destPath, resolved)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return fmt.Errorf("rejecting symlink escaping destination: %s -> %s", linkRel, linkname)
+	}
+	return nil
+}
+
+func extractTarSecure(destPath string, r io.Reader, configChainID string) error {
 	absDest, err := filepath.Abs(destPath)
 	if err != nil {
 		return fmt.Errorf("resolving dest path: %w", err)
@@ -433,11 +516,21 @@ func extractTarSecure(destPath string, r io.Reader) error {
 			return fmt.Errorf("reading tar: %w", err)
 		}
 
-		if err := validateTarPath(absDest, hdr); err != nil {
-			return err
+		mappedRel, mapped := mapTarEntryToDestRel(hdr.Name, absDest, configChainID)
+		var joinRel string
+		if mapped {
+			joinRel = normalizeMappedTarRel(mappedRel)
+			if err := validateTarRelUnderDest(absDest, joinRel); err != nil {
+				return err
+			}
+		} else {
+			if err := validateTarPath(absDest, hdr); err != nil {
+				return err
+			}
+			joinRel = filepath.Clean(hdr.Name)
 		}
 
-		target := filepath.Join(absDest, filepath.Clean(hdr.Name))
+		target := filepath.Join(absDest, joinRel)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o750); err != nil {
@@ -451,8 +544,14 @@ func extractTarSecure(destPath string, r io.Reader) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			if err := validateSymlinkTarget(absDest, hdr.Name, hdr.Linkname); err != nil {
-				return err
+			if mapped {
+				if err := validateSymlinkTargetForRel(absDest, joinRel, hdr.Linkname); err != nil {
+					return err
+				}
+			} else {
+				if err := validateSymlinkTarget(absDest, hdr.Name, hdr.Linkname); err != nil {
+					return err
+				}
 			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 				return fmt.Errorf("creating parent for symlink %s: %w", hdr.Name, err)

@@ -29,7 +29,7 @@ func RelayChainDataPath() string { return filepath.Join(DataDir(), "relaychain-d
 func ChainspecPath() string      { return filepath.Join(ChainDataPath(), "chainspec.json") }
 func RelayChainspecPath() string { return filepath.Join(RelayChainDataPath(), "chainspec.json") }
 
-// DatabaseStorageDir returns the per-chain database directory name under chains/<chain_id>/.
+// DatabaseStorageDir returns the per-chain database directory name under chains/<chain_dir>/.
 // Matches Parity helm node.databasePath: paritydb -> "paritydb", else "db" (rocksdb).
 func DatabaseStorageDir(database string) string {
 	if strings.EqualFold(strings.TrimSpace(database), "paritydb") {
@@ -38,15 +38,21 @@ func DatabaseStorageDir(database string) string {
 	return "db"
 }
 
+// SubstrateChainsDirName returns the directory segment under base-path/chains/ for chain_id.
+// Substrate normalizes hyphens to underscores (e.g. avn-paseo-v2 -> avn_paseo_v2), matching on-disk layout.
+func SubstrateChainsDirName(chainID string) string {
+	return strings.ReplaceAll(chainID, "-", "_")
+}
+
 // ChainDBDataPath returns the chain snapshot / DB path:
-// base-path/chains/<chainID>/<storageDir>/
+// base-path/chains/<SubstrateChainsDirName(chainID)>/<storageDir>/
 func ChainDBDataPath(chainID, database string) string {
-	return filepath.Join(ChainDataPath(), "chains", chainID, DatabaseStorageDir(database))
+	return filepath.Join(ChainDataPath(), "chains", SubstrateChainsDirName(chainID), DatabaseStorageDir(database))
 }
 
 // RelayChainDBDataPath returns the relay chain snapshot / DB path.
 func RelayChainDBDataPath(chainID, database string) string {
-	return filepath.Join(RelayChainDataPath(), "chains", chainID, DatabaseStorageDir(database))
+	return filepath.Join(RelayChainDataPath(), "chains", SubstrateChainsDirName(chainID), DatabaseStorageDir(database))
 }
 
 func KeystorePath() string       { return filepath.Join(DataDir(), "keystore") }
@@ -73,7 +79,7 @@ type NodeConfig struct {
 // ChainDataConfig mirrors Parity node chart chainData (database backend + chain id directory segment).
 type ChainDataConfig struct {
 	Database string `yaml:"database"` // rocksdb (default) or paritydb
-	ChainID  string `yaml:"chain_id"` // Substrate chains/<chain_id>/ segment; not a full path
+	ChainID  string `yaml:"chain_id"` // Logical chain id; on disk under chains/ uses SubstrateChainsDirName (hyphens -> underscores)
 }
 
 // ChainConfig holds chain-specific settings.

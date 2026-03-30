@@ -125,6 +125,7 @@ func TestFixedPaths(t *testing.T) {
 	assert.Equal(t, "paritydb", DatabaseStorageDir("paritydb"))
 	assert.Equal(t, "db", DatabaseStorageDir("rocksdb"))
 	assert.Equal(t, "/data/chain-data/chains/avn_staging_dev_testnet/paritydb", ChainDBDataPath("avn_staging_dev_testnet", "paritydb"))
+	assert.Equal(t, "/data/chain-data/chains/avn_paseo_v2/db", ChainDBDataPath("avn-paseo-v2", "rocksdb"))
 	assert.Equal(t, "/data/chain-data/chains/foo/db", ChainDBDataPath("foo", "rocksdb"))
 	assert.Equal(t, "/data/relaychain-data/chains/paseo/paritydb", RelayChainDBDataPath("paseo", "paritydb"))
 	assert.Equal(t, "/data/keystore", KeystorePath())

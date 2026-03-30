@@ -20,6 +20,53 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestMapTarEntryToDestRel_UnderscoreChainInArchive(t *testing.T) {
+	dest := filepath.Join("/data", "chain-data", "chains", "avn_paseo_v2", "db")
+	cfgID := "avn-paseo-v2"
+
+	rel, mapped := mapTarEntryToDestRel("chains/avn_paseo_v2/db/rocksdb/MANIFEST", dest, cfgID)
+	require.True(t, mapped)
+	assert.Equal(t, "rocksdb/MANIFEST", rel)
+
+	rel, mapped = mapTarEntryToDestRel("chains/avn_paseo_v2/db", dest, cfgID)
+	require.True(t, mapped)
+	assert.Equal(t, ".", rel)
+
+	rel, mapped = mapTarEntryToDestRel("chains/avn-paseo-v2/db/sub/file", dest, cfgID)
+	require.True(t, mapped)
+	assert.Equal(t, "sub/file", rel)
+}
+
+func TestMapTarEntryToDestRel_UnchangedWhenNoPrefixMatch(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "chains", "mychain", "db")
+	name := "probe.txt"
+	rel, mapped := mapTarEntryToDestRel(name, dest, "")
+	assert.False(t, mapped)
+	assert.Equal(t, name, rel)
+}
+
+func TestSyncIfNeeded_TarHyphenChainIDUnderscorePathsInArchive(t *testing.T) {
+	d := testDownloader(t)
+	chainRoot := filepath.Join(t.TempDir(), "chain-data", "chains", "avn_paseo_v2", "db")
+	_ = os.MkdirAll(chainRoot, 0o750)
+
+	files := map[string]string{
+		"chains/avn_paseo_v2/db/ready.txt": "ok",
+	}
+	server := createTarGzServer(t, files)
+	defer server.Close()
+
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar.gz", chainRoot, "avn-paseo-v2")
+	require.NoError(t, err)
+	assert.True(t, result.Downloaded)
+
+	data, err := os.ReadFile(filepath.Join(chainRoot, "ready.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "ok", string(data))
+	_, err = os.Stat(filepath.Join(chainRoot, "chains"))
+	require.Error(t, err, "archive prefix must not create a nested chains/ under db")
+}
+
 func testDownloader(t *testing.T) *Downloader {
 	t.Helper()
 	logger, err := zap.NewDevelopment()
@@ -51,7 +98,7 @@ func createTarGzServer(t *testing.T, files map[string]string) *httptest.Server {
 
 func TestSyncIfNeeded_EmptyURL(t *testing.T) {
 	d := testDownloader(t)
-	result, err := d.SyncIfNeeded(context.Background(), "", "/any/path")
+	result, err := d.SyncIfNeeded(context.Background(), "", "/any/path", "")
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -64,7 +111,7 @@ func TestSyncIfNeeded_AlreadyHasData(t *testing.T) {
 	server := createTarGzServer(t, map[string]string{"test.txt": "should not download"})
 	defer server.Close()
 
-	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir)
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir, "")
 	require.NoError(t, err)
 	assert.True(t, result.Skipped)
 	assert.False(t, result.Downloaded)
@@ -84,7 +131,7 @@ func TestSyncIfNeeded_DownloadsAndExtracts(t *testing.T) {
 	})
 	defer server.Close()
 
-	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir)
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir, "")
 	require.NoError(t, err)
 	assert.True(t, result.Downloaded)
 	assert.False(t, result.Skipped)
@@ -107,7 +154,7 @@ func TestSyncIfNeeded_TarExtensionDetectsGzip(t *testing.T) {
 	server := createTarGzServer(t, map[string]string{"db/metadata": "gzipped"})
 	defer server.Close()
 
-	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/data.tar", dir)
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/data.tar", dir, "")
 	require.NoError(t, err)
 	assert.True(t, result.Downloaded)
 	assert.Equal(t, "tar", result.Method)
@@ -190,7 +237,7 @@ func TestSyncIfNeeded_TarExtensionDetectsCompressedMagic(t *testing.T) {
 
 			d := testDownloader(t)
 			dir := filepath.Join(t.TempDir(), "chaindata")
-			result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir)
+			result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir, "")
 			require.NoError(t, err)
 			assert.True(t, result.Downloaded)
 			assert.Equal(t, "tar", result.Method)
@@ -226,7 +273,7 @@ func TestSyncIfNeeded_TarExtensionUncompressedTar(t *testing.T) {
 	server := createRawTarServer(t, map[string]string{"plain.txt": "raw"})
 	defer server.Close()
 
-	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir)
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir, "")
 	require.NoError(t, err)
 	assert.True(t, result.Downloaded)
 	assert.Equal(t, "tar", result.Method)
@@ -243,7 +290,7 @@ func TestSyncIfNeeded_NonexistentDir(t *testing.T) {
 	server := createTarGzServer(t, map[string]string{"data.txt": "hello"})
 	defer server.Close()
 
-	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir)
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir, "")
 	require.NoError(t, err)
 	assert.True(t, result.Downloaded)
 
@@ -261,7 +308,7 @@ func TestSyncIfNeeded_HTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/missing.tar.gz", dir)
+	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/missing.tar.gz", dir, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "status 404")
 }
@@ -270,7 +317,7 @@ func TestSyncIfNeeded_InvalidURL(t *testing.T) {
 	d := testDownloader(t)
 	dir := filepath.Join(t.TempDir(), "chaindata")
 
-	_, err := d.SyncIfNeeded(context.Background(), "http://localhost:1/definitely-not-running.tar.gz", dir)
+	_, err := d.SyncIfNeeded(context.Background(), "http://localhost:1/definitely-not-running.tar.gz", dir, "")
 	require.Error(t, err)
 }
 
@@ -286,7 +333,7 @@ func TestSyncIfNeeded_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := d.SyncIfNeeded(ctx, server.URL+"/snap.tar.gz", dir)
+	_, err := d.SyncIfNeeded(ctx, server.URL+"/snap.tar.gz", dir, "")
 	require.Error(t, err)
 }
 
@@ -498,7 +545,7 @@ func TestExtractTarSecure_RejectsPathTraversal(t *testing.T) {
 	defer malicious.Close()
 
 	d := testDownloader(t)
-	_, err := d.SyncIfNeeded(context.Background(), malicious.URL+"/evil.tar.gz", dir)
+	_, err := d.SyncIfNeeded(context.Background(), malicious.URL+"/evil.tar.gz", dir, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rejecting path outside destination")
 }
@@ -517,7 +564,7 @@ func TestExtractTarSecure_AcceptsSymlinkWithDoubleDotsInName(t *testing.T) {
 	defer server.Close()
 
 	d := testDownloader(t)
-	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir)
+	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/snap.tar.gz", dir, "")
 	require.NoError(t, err)
 
 	// Symlink should exist (target "foo..bar" resolves within dir, so it's valid)
@@ -542,7 +589,7 @@ func TestExtractTarSecure_RejectsAbsolutePath(t *testing.T) {
 	defer server.Close()
 
 	d := testDownloader(t)
-	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/evil.tar.gz", dir)
+	_, err := d.SyncIfNeeded(context.Background(), server.URL+"/evil.tar.gz", dir, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "absolute path")
 }
