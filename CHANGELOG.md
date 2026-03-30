@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.5.0...v1.5.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* **snapshot:** detect gzip/zstd/xz/bz2 for .tar snapshot URLs ([#19](https://github.com/AventusDAO/substrate-bootstrap/issues/19)) ([b047580](https://github.com/AventusDAO/substrate-bootstrap/commit/b047580735097a17991957527f3adce5f2d36546))
+
 ## [1.5.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.2...v1.5.0) (2026-03-30)
 
 
