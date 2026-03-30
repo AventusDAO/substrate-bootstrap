@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"net/http"
@@ -11,8 +12,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/dsnet/compress/bzip2"
+	"github.com/klauspost/compress/zstd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ulikunitz/xz"
 	"go.uber.org/zap"
 )
 
@@ -113,6 +117,90 @@ func TestSyncIfNeeded_TarExtensionDetectsGzip(t *testing.T) {
 	assert.Equal(t, "gzipped", string(data))
 }
 
+func buildTarBytes(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for name, content := range files {
+		hdr := &tar.Header{
+			Name: name,
+			Mode: 0o644,
+			Size: int64(len(content)),
+		}
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	return buf.Bytes()
+}
+
+func TestSyncIfNeeded_TarExtensionDetectsCompressedMagic(t *testing.T) {
+	tarBytes := buildTarBytes(t, map[string]string{"probe.txt": "magic"})
+
+	tests := []struct {
+		name     string
+		compress func(t *testing.T, in []byte) []byte
+	}{
+		{
+			name: "zstd",
+			compress: func(t *testing.T, in []byte) []byte {
+				var buf bytes.Buffer
+				enc, err := zstd.NewWriter(&buf)
+				require.NoError(t, err)
+				_, err = enc.Write(in)
+				require.NoError(t, err)
+				require.NoError(t, enc.Close())
+				return buf.Bytes()
+			},
+		},
+		{
+			name: "xz",
+			compress: func(t *testing.T, in []byte) []byte {
+				var buf bytes.Buffer
+				w, err := xz.NewWriter(&buf)
+				require.NoError(t, err)
+				_, err = w.Write(in)
+				require.NoError(t, err)
+				require.NoError(t, w.Close())
+				return buf.Bytes()
+			},
+		},
+		{
+			name: "bzip2",
+			compress: func(t *testing.T, in []byte) []byte {
+				var buf bytes.Buffer
+				w, err := bzip2.NewWriter(&buf, &bzip2.WriterConfig{Level: bzip2.BestSpeed})
+				require.NoError(t, err)
+				_, err = w.Write(in)
+				require.NoError(t, err)
+				require.NoError(t, w.Close())
+				return buf.Bytes()
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := tc.compress(t, tarBytes)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write(body)
+			}))
+			t.Cleanup(server.Close)
+
+			d := testDownloader(t)
+			dir := filepath.Join(t.TempDir(), "chaindata")
+			result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir)
+			require.NoError(t, err)
+			assert.True(t, result.Downloaded)
+			assert.Equal(t, "tar", result.Method)
+			data, err := os.ReadFile(filepath.Join(dir, "probe.txt"))
+			require.NoError(t, err)
+			assert.Equal(t, "magic", string(data))
+		})
+	}
+}
+
 func createRawTarServer(t *testing.T, files map[string]string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +229,7 @@ func TestSyncIfNeeded_TarExtensionUncompressedTar(t *testing.T) {
 	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir)
 	require.NoError(t, err)
 	assert.True(t, result.Downloaded)
+	assert.Equal(t, "tar", result.Method)
 
 	data, err := os.ReadFile(filepath.Join(dir, "plain.txt"))
 	require.NoError(t, err)
