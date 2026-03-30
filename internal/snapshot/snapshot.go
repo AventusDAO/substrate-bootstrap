@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/bzip2"
 	"compress/gzip"
 	"context"
@@ -375,10 +376,45 @@ func newDecompressor(url string, r io.Reader) (io.ReadCloser, error) {
 		}
 		return io.NopCloser(xr), nil
 	case strings.HasSuffix(lower, ".tar"):
-		return io.NopCloser(r), nil
+		return newDecompressorMaybeCompressedTar(r)
 	default:
 		return gzip.NewReader(r)
 	}
+}
+
+// newDecompressorMaybeCompressedTar handles URLs ending in .tar where the object may be
+// uncompressed tar or compressed (often gzip) but still named .tar (e.g. tar czf data.tar).
+func newDecompressorMaybeCompressedTar(r io.Reader) (io.ReadCloser, error) {
+	br := bufio.NewReader(r)
+	peek, err := br.Peek(6)
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("reading snapshot: %w", err)
+	}
+	if len(peek) >= 2 && peek[0] == 0x1f && peek[1] == 0x8b {
+		gz, err := gzip.NewReader(br)
+		if err != nil {
+			return nil, err
+		}
+		return gz, nil
+	}
+	if len(peek) >= 4 && peek[0] == 0x28 && peek[1] == 0xb5 && peek[2] == 0x2f && peek[3] == 0xfd {
+		zr, err := zstd.NewReader(br)
+		if err != nil {
+			return nil, err
+		}
+		return zr.IOReadCloser(), nil
+	}
+	if len(peek) >= 6 && peek[0] == 0xfd && peek[1] == 0x37 && peek[2] == 0x7a && peek[3] == 0x58 && peek[4] == 0x5a && peek[5] == 0x00 {
+		xr, err := xz.NewReader(br)
+		if err != nil {
+			return nil, err
+		}
+		return io.NopCloser(xr), nil
+	}
+	if len(peek) >= 3 && peek[0] == 'B' && peek[1] == 'Z' && peek[2] == 'h' {
+		return io.NopCloser(bzip2.NewReader(br)), nil
+	}
+	return io.NopCloser(br), nil
 }
 
 func extractTarSecure(destPath string, r io.Reader) error {

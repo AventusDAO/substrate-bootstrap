@@ -95,6 +95,58 @@ func TestSyncIfNeeded_DownloadsAndExtracts(t *testing.T) {
 	assert.Equal(t, "logdata", string(data))
 }
 
+// Gzip-compressed payload is often uploaded with a .tar filename; magic-byte sniff must still extract.
+func TestSyncIfNeeded_TarExtensionDetectsGzip(t *testing.T) {
+	d := testDownloader(t)
+	dir := filepath.Join(t.TempDir(), "chaindata")
+
+	server := createTarGzServer(t, map[string]string{"db/metadata": "gzipped"})
+	defer server.Close()
+
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/data.tar", dir)
+	require.NoError(t, err)
+	assert.True(t, result.Downloaded)
+	assert.Equal(t, "tar", result.Method)
+
+	data, err := os.ReadFile(filepath.Join(dir, "db/metadata"))
+	require.NoError(t, err)
+	assert.Equal(t, "gzipped", string(data))
+}
+
+func createRawTarServer(t *testing.T, files map[string]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tw := tar.NewWriter(w)
+		defer tw.Close()
+		for name, content := range files {
+			hdr := &tar.Header{
+				Name: name,
+				Mode: 0o644,
+				Size: int64(len(content)),
+			}
+			require.NoError(t, tw.WriteHeader(hdr))
+			_, err := tw.Write([]byte(content))
+			require.NoError(t, err)
+		}
+	}))
+}
+
+func TestSyncIfNeeded_TarExtensionUncompressedTar(t *testing.T) {
+	d := testDownloader(t)
+	dir := filepath.Join(t.TempDir(), "chaindata")
+
+	server := createRawTarServer(t, map[string]string{"plain.txt": "raw"})
+	defer server.Close()
+
+	result, err := d.SyncIfNeeded(context.Background(), server.URL+"/snapshot.tar", dir)
+	require.NoError(t, err)
+	assert.True(t, result.Downloaded)
+
+	data, err := os.ReadFile(filepath.Join(dir, "plain.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "raw", string(data))
+}
+
 func TestSyncIfNeeded_NonexistentDir(t *testing.T) {
 	d := testDownloader(t)
 	dir := filepath.Join(t.TempDir(), "deep", "nested", "chaindata")
