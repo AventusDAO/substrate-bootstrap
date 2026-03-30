@@ -687,6 +687,61 @@ func TestIsSolochain(t *testing.T) {
 	assert.True(t, cfg.IsSolochain())
 }
 
+func TestLoad_RelayChainLightClientSolochainInvalid(t *testing.T) {
+	yaml := `
+node:
+  name: solo-node
+  mode: solochain
+chain:
+  chain_spec: /opt/chainspecs/mainnet.json
+  chain_data:
+    chain_id: solo_mainnet
+  relay_chain_light_client: true
+`
+	_, err := Load(writeConfig(t, yaml))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "chain.relay_chain_light_client is only valid when node.mode is \"parachain\"")
+}
+
+func TestLoad_RelayChainLightClientWithRelaySnapshotInvalid(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+  relay_chain_light_client: true
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+  snapshot_url: https://example.com/relay-snap.tar.gz
+`
+	_, err := Load(writeConfig(t, yaml))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "relay_chain.snapshot_url cannot be set when chain.relay_chain_light_client is true")
+}
+
+func TestLoad_RelayChainLightClientParachainOK(t *testing.T) {
+	yaml := `
+node:
+  name: test
+chain:
+  chain_spec: /opt/chain.json
+  chain_data:
+    chain_id: test_parachain
+  bootnodes: ["/dns/a/tcp/1/p2p/x"]
+  relay_chain_light_client: true
+relay_chain:
+  chain_spec: /opt/relay.json
+  bootnodes: ["/dns/b/tcp/1/p2p/y"]
+`
+	cfg, err := Load(writeConfig(t, yaml))
+	require.NoError(t, err)
+	assert.True(t, cfg.Chain.RelayChainLightClient)
+}
+
 func TestLoad_InvalidChainDatabase(t *testing.T) {
 	yaml := `
 node:
