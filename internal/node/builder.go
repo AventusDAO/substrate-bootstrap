@@ -46,6 +46,10 @@ func buildChainArgs(cfg *config.Config, publicIP string) []string {
 		args = append(args, "--keystore-path", config.KeystorePath())
 	}
 
+	if !cfg.IsSolochain() && cfg.Chain.RelayChainLightClient {
+		args = append(args, "--relay-chain-light-client")
+	}
+
 	args = append(args, cfg.Chain.ExtraArgs...)
 	args = append(args, bootnodeArgs(cfg.Chain.Bootnodes, cfg.Chain.OverrideBootnodes)...)
 

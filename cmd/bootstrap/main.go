@@ -105,7 +105,7 @@ func run(ctx context.Context, cfg *config.Config, logger *zap.Logger) error {
 		}
 		chainSnap = result
 	}
-	if !cfg.IsSolochain() && cfg.RelayChain.SnapshotURL != "" {
+	if !cfg.IsSolochain() && cfg.RelayChain.SnapshotURL != "" && !cfg.Chain.RelayChainLightClient {
 		relayDest := config.RelayChainDBDataPath(
 			strings.TrimSpace(cfg.RelayChain.ChainData.ChainID),
 			cfg.RelayChain.ChainData.Database,

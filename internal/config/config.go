@@ -91,6 +91,8 @@ type ChainConfig struct {
 	OverrideBootnodes      []string        `yaml:"override_bootnodes"`
 	ExtraArgs              []string        `yaml:"extra_args"`
 	SnapshotURL            string          `yaml:"snapshot_url"`
+	// RelayChainLightClient (parachain only): adds --relay-chain-light-client to chain CLI args; relay snapshot sync is disabled.
+	RelayChainLightClient bool `yaml:"relay_chain_light_client"`
 }
 
 type RelayChainConfig struct {
@@ -262,6 +264,10 @@ func (c *Config) Validate() error {
 		errs = append(errs, fmt.Sprintf("chain.port must be 1-65535, got %d", c.Chain.Port))
 	}
 
+	if mode == "solochain" && c.Chain.RelayChainLightClient {
+		errs = append(errs, "chain.relay_chain_light_client is only valid when node.mode is \"parachain\"")
+	}
+
 	if mode != "solochain" {
 		if c.RelayChain.ChainSpec == "" && c.RelayChain.ChainspecURL == "" {
 			errs = append(errs, "relay_chain.chain_spec or relay_chain.chainspec_url is required")
@@ -278,6 +284,9 @@ func (c *Config) Validate() error {
 		case "rocksdb", "paritydb":
 		default:
 			errs = append(errs, fmt.Sprintf("relay_chain.chain_data.database must be \"rocksdb\" or \"paritydb\", got %q", c.RelayChain.ChainData.Database))
+		}
+		if c.Chain.RelayChainLightClient && strings.TrimSpace(c.RelayChain.SnapshotURL) != "" {
+			errs = append(errs, "relay_chain.snapshot_url cannot be set when chain.relay_chain_light_client is true (relay chain DB sync is not used)")
 		}
 	}
 

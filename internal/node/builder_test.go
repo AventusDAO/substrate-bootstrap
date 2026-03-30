@@ -95,6 +95,49 @@ func TestBuildArgs_RPCRole(t *testing.T) {
 	assert.Equal(t, expected, args)
 }
 
+func TestBuildArgs_RelayChainLightClient(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Chain.RelayChainLightClient = true
+	args := BuildArgs(cfg, "")
+
+	expected := []string{
+		"--name", "rpc-node-1",
+		"--base-path", "/data/chain-data",
+		"--chain=/opt/chainspecs/chain.json",
+		"--database=rocksdb",
+		"--no-mdns",
+		"--blocks-pruning=archive-canonical",
+		"--state-pruning=256",
+		"--telemetry-url", "wss://telemetry.example.io/submit 0",
+		"--listen-addr=/ip4/0.0.0.0/tcp/40333",
+		"--prometheus-port", "9615",
+		"--prometheus-external",
+		"--relay-chain-light-client",
+		"--db-cache=2048",
+		"--rpc-port=9944",
+		"--rpc-external",
+		"--rpc-cors=all",
+		"--bootnodes", "/dns/boot1.example.io/tcp/40333/p2p/12D3KooW1",
+		"--",
+		"--name", "rpc-node-1",
+		"--base-path", "/data/relaychain-data",
+		"--database=rocksdb",
+		"--telemetry-url", "wss://telemetry.example.io/submit 0",
+		"--chain=/opt/chainspecs/polkadot.json",
+		"--port", "30333",
+		"--bootnodes", "/dns/relay-boot.parity.io/tcp/30333/p2p/12D3KooWR",
+	}
+	assert.Equal(t, expected, args)
+}
+
+func TestBuildArgs_SolochainOmitsRelayChainLightClientFlag(t *testing.T) {
+	cfg := rpcConfig()
+	cfg.Node.Mode = "solochain"
+	cfg.Chain.RelayChainLightClient = true
+	args := BuildArgs(cfg, "")
+	assert.Equal(t, -1, indexOf(args, "--relay-chain-light-client"))
+}
+
 func TestBuildArgs_ListenerRole(t *testing.T) {
 	cfg := listenerConfig()
 	args := BuildArgs(cfg, "")

@@ -53,6 +53,7 @@ Mirrors Parity node chart [`chainData`](https://github.com/paritytech/helm-chart
 | `override_bootnodes`   | `[]`                 | When set, replaces `bootnodes` |
 | `extra_args`           | `[]`                 | Extra CLI args (RPC, offchain-worker, etc.) |
 | `snapshot_url`         | `""`                 | Snapshot URL (rclone or tar); data goes under `chains/<chain_id>/` |
+| `relay_chain_light_client` | `false`          | **Parachain only.** Adds `--relay-chain-light-client` to chain args (experimental; full-node embedded relay light client using `relay_chain` chainspec). Disables relay-chain snapshot sync; do not set `relay_chain.snapshot_url`. |
 
 \* Either `chain_spec` or `chainspec_url` is required.
 
