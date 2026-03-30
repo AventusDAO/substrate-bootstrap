@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.2...v1.5.0) (2026-03-30)
+
+
+### Features
+
+* **config:** add chain.relay_chain_light_client for parachain nodes ([#17](https://github.com/AventusDAO/substrate-bootstrap/issues/17)) ([166aff4](https://github.com/AventusDAO/substrate-bootstrap/commit/166aff4d51ac33fda4cbdf83311ee5fa606de9bf))
+
 ## [1.4.2](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.4.1...v1.4.2) (2026-03-24)
 
 
