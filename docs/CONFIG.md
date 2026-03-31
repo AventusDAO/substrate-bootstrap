@@ -37,7 +37,7 @@ Mirrors Parity node chart [`chainData`](https://github.com/paritytech/helm-chart
 | Field       | Default    | Description |
 | ----------- | ---------- | ----------- |
 | `database`  | `rocksdb`  | `rocksdb` (DB dir `db`) or `paritydb` (DB dir `paritydb`); passed as `--database` |
-| `chain_id`  | (required) | Segment for `.../chain-data/chains/<chain_id>/...`; same role as helm `CHAIN_PATH` / `node.chain` |
+| `chain_id`  | (required) | Logical id (same role as helm `CHAIN_PATH` / `node.chain`); on disk under `chains/` Substrate uses hyphens→underscores (e.g. `avn-paseo-v2` → `avn_paseo_v2`) |
 
 #### Other `chain` fields
 
@@ -52,7 +52,7 @@ Mirrors Parity node chart [`chainData`](https://github.com/paritytech/helm-chart
 | `bootnodes`            | `[]`                 | Chain bootnodes |
 | `override_bootnodes`   | `[]`                 | When set, replaces `bootnodes` |
 | `extra_args`           | `[]`                 | Extra CLI args (RPC, offchain-worker, etc.) |
-| `snapshot_url`         | `""`                 | Snapshot URL (rclone or tar); data goes under `chains/<chain_id>/` |
+| `snapshot_url`         | `""`                 | Snapshot URL (rclone or tar); data goes under `chains/<substrate_dir>/` (see `chain_id` row) |
 | `relay_chain_light_client` | `false`          | **Parachain only.** Adds `--relay-chain-light-client` to chain args (experimental; full-node embedded relay light client using `relay_chain` chainspec). Disables relay-chain snapshot sync; do not set `relay_chain.snapshot_url`. |
 
 \* Either `chain_spec` or `chainspec_url` is required.
@@ -68,7 +68,7 @@ Same semantics as `chain.chain_data` for relay data under `/data/relaychain-data
 | Field       | Default     | Description |
 | ----------- | ----------- | ----------- |
 | `database`  | `rocksdb`   | `rocksdb` or `paritydb` |
-| `chain_id`  | `polkadot`  | Relay `chains/<chain_id>/` segment (override e.g. `paseo`, `kusama`) |
+| `chain_id`  | `polkadot`  | Relay logical id; on-disk segment under `chains/` uses Substrate naming (hyphens→underscores) |
 
 #### Other `relay_chain` fields
 
@@ -142,7 +142,7 @@ Set `chainspec_url` under `chain` or `relay_chain` to download the chainspec bef
 
 ## Snapshot Sync
 
-- **Tar archives**: Use a URL ending in `.tar.gz`, `.tar.lz4`, `.tar.zst`, etc. Extracted to `/data/chain-data/chains/<chain.chain_data.chain_id>/<db|paritydb>/` (and relay analogue).
+- **Tar archives**: Use a URL ending in `.tar.gz`, `.tar.lz4`, `.tar.zst`, etc. Extracted to `/data/chain-data/chains/<normalized_chain_id>/<db|paritydb>/` (normalized = Substrate dir name: hyphens in `chain_id` become underscores; relay analogue under relaychain-data).
 - **Polkadot-style** (rclone): Use base URL (e.g. `https://snapshots.polkadot.io/...`). `chain_id` must match the snapshot chain id. Base URLs without a version suffix auto-resolve the latest snapshot.
 - **Backend vs snapshot**: Official Polkadot snapshots use ParityDB — set `chain_data.database: paritydb` (and the same for relay) so files land under `paritydb/` where the node expects them. Default `rocksdb` uses the `db/` directory.
 
