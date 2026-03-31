@@ -9,7 +9,7 @@ A Go CLI that bootstraps and manages Polkadot parachain and solochain nodes. A s
 - **Snapshot sync** — Download chain data via rclone (Polkadot-style) or tar archives
 - **Chainspec download** — Optional `chainspec_url` to fetch chain/relay chain specs; when set, config `chain_spec` is ignored and the node uses the downloaded file
 - **Idempotent bootstrap** — Shell commands run once; state tracked in JSON file
-- **Fixed data layout** — Predefined volume paths (no user overrides) matching Parity Helm chart patterns
+- **Fixed data layout** — Predefined volume paths (no user overrides) matching Parity Helm chart patterns; under `chains/`, the directory name follows Substrate (hyphens in YAML `chain_id` become underscores on disk)
 - **Signal forwarding** — Graceful shutdown propagates SIGINT/SIGTERM to the node process
 
 ## Requirements
