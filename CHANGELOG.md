@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.5.1...v1.5.2) (2026-03-31)
+
+
+### Bug Fixes
+
+* document Substrate chains/ directory naming ([#23](https://github.com/AventusDAO/substrate-bootstrap/issues/23)) ([cdbb413](https://github.com/AventusDAO/substrate-bootstrap/commit/cdbb413a4dfb17f0ec2d2141044175328f87c8a9))
+
 ## [1.5.1](https://github.com/AventusDAO/substrate-bootstrap/compare/v1.5.0...v1.5.1) (2026-03-30)
 
 
